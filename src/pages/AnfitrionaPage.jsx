@@ -14,6 +14,11 @@ import { estaEnHorario } from '../lib/horario'
 import { rangoSemanaPasada, fechaLocalYYYYMMDD } from '../lib/fechas'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
+import { INPUT } from '../lib/estilos'
+import Tarjeta from '../components/Tarjeta'
+import Boton from '../components/Boton'
+import Badge from '../components/Badge'
+import Alerta from '../components/Alerta'
 
 export default function AnfitrionaPage() {
   const [equipos, setEquipos] = useState([])
@@ -212,21 +217,17 @@ export default function AnfitrionaPage() {
 
   if (!equipoActivoId) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 animate-fade-in">
         <h1 className="text-lg font-semibold text-gray-900">Iniciar semana</h1>
         <p className="text-sm text-gray-600">Selecciona el equipo que atiende esta semana.</p>
         <div className="flex gap-2 flex-wrap">
           {equipos.map((e) => (
-            <button
-              key={e.id}
-              onClick={() => handleIniciarSemana(e.id)}
-              className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm"
-            >
+            <Boton key={e.id} onClick={() => handleIniciarSemana(e.id)}>
               {e.nombre}
-            </button>
+            </Boton>
           ))}
         </div>
-        {mensaje && <p className="text-sm text-gray-600">{mensaje}</p>}
+        <Alerta tipo="info">{mensaje}</Alerta>
       </div>
     )
   }
@@ -234,7 +235,7 @@ export default function AnfitrionaPage() {
   const equipoActivo = equipos.find((e) => e.id === equipoActivoId)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900">Cola — {equipoActivo?.nombre}</h1>
         <div className="flex gap-3">
@@ -244,18 +245,18 @@ export default function AnfitrionaPage() {
                 handleIniciarSemana(equipoActivoId)
               }
             }}
-            className="text-sm text-gray-500 underline"
+            className="text-xs text-gray-500 hover:text-gray-900 transition-colors"
           >
-            Reiniciar orden de la semana
+            Reiniciar orden
           </button>
-          <button onClick={() => setMostrarCambioEquipo((v) => !v)} className="text-sm text-gray-500 underline">
+          <button onClick={() => setMostrarCambioEquipo((v) => !v)} className="text-xs text-gray-500 hover:text-gray-900 transition-colors">
             Cambiar equipo
           </button>
         </div>
       </div>
 
       {mostrarCambioEquipo && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+        <Tarjeta animar className="bg-amber-50 border-amber-200 p-4 space-y-2">
           <p className="text-xs text-amber-800">
             Esto reemplaza la cola actual con la del equipo elegido, recalculada desde cero. Úsalo solo si el equipo activo quedó mal asignado.
           </p>
@@ -270,28 +271,28 @@ export default function AnfitrionaPage() {
                     await handleIniciarSemana(e.id)
                     setMostrarCambioEquipo(false)
                   }}
-                  className="rounded-lg bg-white border border-amber-300 px-3 py-1.5 text-sm text-amber-900"
+                  className="rounded-lg bg-white border border-amber-300 px-3 py-1.5 text-sm text-amber-900 hover:bg-amber-100 transition-colors"
                 >
                   {e.nombre}
                 </button>
               ))}
           </div>
-        </div>
+        </Tarjeta>
       )}
 
-      <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-600 space-y-1">
+      <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-xs text-gray-500 space-y-1.5">
         <p>
-          <strong>Siguiente:</strong> el comercial marcado en azul es quien va a recibir el próximo cliente si le das "Asignar" ahora
-          mismo (sin pedir uno específico).
+          <strong className="text-gray-700">Siguiente:</strong> el comercial resaltado en azul es quien va a recibir el próximo cliente
+          si le das "Asignar" ahora mismo (sin pedir uno específico).
         </p>
         <p>
-          <strong>Ocupado / Disponible:</strong> se marca solo cuando le asignas un cliente. Para liberarlo vas a tener que decir si ese
-          cliente fue efectivo o no. Si necesitas marcarlo ocupado por otro motivo (ausente, etc.) puedes hacerlo manual, y ahí sí se libera
-          directo, sin preguntar nada.
+          <strong className="text-gray-700">Ocupado / Disponible:</strong> se marca solo cuando le asignas un cliente. Para liberarlo vas
+          a tener que decir si ese cliente fue efectivo o no. Si necesitas marcarlo ocupado por otro motivo (ausente, etc.) puedes hacerlo
+          manual, y ahí sí se libera directo, sin preguntar nada.
         </p>
       </div>
 
-      <ol className="space-y-2">
+      <ol className="space-y-2.5">
         {(cola?.orden ?? []).map((id, i) => {
           const comercial = comercialesPorId[id]
           const ocupado = cola.ocupados?.includes(id)
@@ -299,66 +300,66 @@ export default function AnfitrionaPage() {
           const llegada = comercial?.ultimaLlegada?.fecha === fechaLocalYYYYMMDD() ? comercial.ultimaLlegada : null
           const esSiguiente = id === proximoEnRecibir
           return (
-            <li
+            <Tarjeta
               key={id}
-              className={`rounded-lg border px-3 py-3 space-y-2 ${
-                esSiguiente ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-300' : 'bg-white border-gray-200'
-              }`}
+              animar
+              style={{ animationDelay: `${Math.min(i, 10) * 35}ms` }}
+              className={`px-4 py-3.5 space-y-2.5 ${esSiguiente ? 'border-blue-300 ring-1 ring-blue-200 bg-blue-50/40' : ''}`}
             >
               <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {i + 1}. {comercial?.nombre ?? id}
-                  </p>
-                  {comercial?.telefono && (
-                    <a href={`tel:${comercial.telefono}`} className="text-xs text-gray-500 underline">
-                      {comercial.telefono}
-                    </a>
-                  )}
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 ${
+                      esSiguiente ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {i + 1}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{comercial?.nombre ?? id}</p>
+                    {comercial?.telefono && (
+                      <a href={`tel:${comercial.telefono}`} className="text-xs text-gray-500 hover:text-gray-900 transition-colors">
+                        {comercial.telefono}
+                      </a>
+                    )}
+                  </div>
                 </div>
-                {esSiguiente && (
-                  <span className="text-xs rounded-full bg-blue-600 text-white px-2 py-0.5 shrink-0">Siguiente</span>
-                )}
+                {esSiguiente && <Badge color="blue">Siguiente</Badge>}
               </div>
-              {!enHorario && <p className="text-xs text-gray-400">Fuera de su horario de hoy</p>}
+              {!enHorario && <p className="text-xs text-gray-400 pl-10">Fuera de su horario de hoy</p>}
 
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 pl-10">
                 <span className="text-xs text-gray-500">
                   {llegada
                     ? `Llegó hoy a las ${new Date(llegada.horaISO).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`
                     : 'Todavía no ha marcado llegada hoy'}
                 </span>
                 {!llegada && (
-                  <button
-                    onClick={() => handleMarcarLlegada(id)}
-                    className="text-xs rounded-lg border border-gray-300 px-2 py-1 text-gray-700 shrink-0"
-                  >
-                    Ya llegó, registrar
-                  </button>
+                  <Boton variante="secundario" tamano="sm" onClick={() => handleMarcarLlegada(id)} className="shrink-0">
+                    Ya llegó
+                  </Boton>
                 )}
               </div>
 
               {resolviendoId === id ? (
-                <div className="bg-gray-50 rounded-lg p-2 space-y-2">
-                  <p className="text-xs text-gray-700">
-                    ¿{cola.clienteActual?.[id]?.nombre ?? 'El cliente'} fue efectivo?
-                  </p>
+                <div className="bg-gray-50 rounded-lg p-3 space-y-2 ml-10 animate-slide-up">
+                  <p className="text-xs text-gray-700">¿{cola.clienteActual?.[id]?.nombre ?? 'El cliente'} fue efectivo?</p>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => resolverYLiberar(id, true)}
-                      className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-3 py-1"
+                      className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 hover:bg-emerald-200 transition-colors"
                     >
                       Sí, efectivo
                     </button>
                     <button
                       onClick={() => setMostrandoMotivoId(id)}
-                      className="text-xs rounded-full bg-gray-200 text-gray-700 px-3 py-1"
+                      className="text-xs rounded-full bg-gray-200 text-gray-700 px-3 py-1 hover:bg-gray-300 transition-colors"
                     >
                       No fue efectivo
                     </button>
                   </div>
                   {mostrandoMotivoId === id && (
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 animate-slide-up">
                       <select
                         value={motivoSeleccionado}
                         onChange={(e) => setMotivoSeleccionado(e.target.value)}
@@ -375,12 +376,12 @@ export default function AnfitrionaPage() {
                       </button>
                     </div>
                   )}
-                  <button onClick={() => setResolviendoId(null)} className="text-xs text-gray-400 underline">
+                  <button onClick={() => setResolviendoId(null)} className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
                     Cancelar
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center justify-between gap-2 pl-10">
                   <span className="text-xs text-gray-500">
                     {ocupado
                       ? cola.clienteActual?.[id]
@@ -390,66 +391,70 @@ export default function AnfitrionaPage() {
                   </span>
                   <button
                     onClick={() => toggleOcupado(id)}
-                    className={`text-xs rounded-full px-3 py-1 shrink-0 ${ocupado ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}
+                    className={`text-xs rounded-full px-3 py-1 shrink-0 font-medium transition-colors ${
+                      ocupado ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                    }`}
                   >
                     {ocupado ? 'Marcar libre' : 'Marcar ocupado'}
                   </button>
                 </div>
               )}
-            </li>
+            </Tarjeta>
           )
         })}
       </ol>
 
-      <form onSubmit={handleAsignar} className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-        <h2 className="text-sm font-semibold text-gray-900">Registrar cliente</h2>
-        <input
-          required
-          placeholder="Nombre del cliente"
-          value={nombreCliente}
-          onChange={(e) => setNombreCliente(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        />
-        <input
-          placeholder="Teléfono (opcional)"
-          value={telefonoCliente}
-          onChange={(e) => setTelefonoCliente(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        />
-        <div className="flex gap-4 text-sm">
-          <label className="flex items-center gap-1">
-            <input type="radio" checked={tipoCliente === 'nuevo'} onChange={() => setTipoCliente('nuevo')} />
-            Nuevo
-          </label>
-          <label className="flex items-center gap-1">
-            <input type="radio" checked={tipoCliente === 'recurrente'} onChange={() => setTipoCliente('recurrente')} />
-            Recurrente
-          </label>
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={pideEspecifico} onChange={(e) => setPideEspecifico(e.target.checked)} />
-          Pide un comercial específico
-        </label>
-        {pideEspecifico && (
-          <select
+      <Tarjeta className="p-4">
+        <form onSubmit={handleAsignar} className="space-y-3">
+          <h2 className="text-sm font-semibold text-gray-900">Registrar cliente</h2>
+          <input
             required
-            value={comercialEspecificoId}
-            onChange={(e) => setComercialEspecificoId(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="">Selecciona comercial</option>
-            {comercialesActivosEquipo.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-              </option>
-            ))}
-          </select>
-        )}
-        <button type="submit" className="w-full rounded-lg bg-gray-900 text-white py-2 text-sm font-medium">
-          Asignar
-        </button>
-        {mensaje && <p className="text-sm text-gray-600">{mensaje}</p>}
-      </form>
+            placeholder="Nombre del cliente"
+            value={nombreCliente}
+            onChange={(e) => setNombreCliente(e.target.value)}
+            className={INPUT}
+          />
+          <input
+            placeholder="Teléfono (opcional)"
+            value={telefonoCliente}
+            onChange={(e) => setTelefonoCliente(e.target.value)}
+            className={INPUT}
+          />
+          <div className="flex gap-4 text-sm">
+            <label className="flex items-center gap-1.5">
+              <input type="radio" checked={tipoCliente === 'nuevo'} onChange={() => setTipoCliente('nuevo')} />
+              Nuevo
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input type="radio" checked={tipoCliente === 'recurrente'} onChange={() => setTipoCliente('recurrente')} />
+              Recurrente
+            </label>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={pideEspecifico} onChange={(e) => setPideEspecifico(e.target.checked)} />
+            Pide un comercial específico
+          </label>
+          {pideEspecifico && (
+            <select
+              required
+              value={comercialEspecificoId}
+              onChange={(e) => setComercialEspecificoId(e.target.value)}
+              className={`${INPUT} animate-slide-up`}
+            >
+              <option value="">Selecciona comercial</option>
+              {comercialesActivosEquipo.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          )}
+          <Boton type="submit" className="w-full">
+            Asignar
+          </Boton>
+          <Alerta tipo="info">{mensaje}</Alerta>
+        </form>
+      </Tarjeta>
     </div>
   )
 }

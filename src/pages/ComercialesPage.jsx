@@ -4,7 +4,13 @@ import { suscribirClientesDeComercial, marcarDescarte, revertirDescarte } from '
 import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
 import { agruparClientesPorDia, formatoTituloDia } from '../lib/agruparClientesPorDia'
 import { fechaLocalYYYYMMDD } from '../lib/fechas'
+import { INPUT_SM } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
+import Tarjeta from '../components/Tarjeta'
+import Badge from '../components/Badge'
+import Boton from '../components/Boton'
+import Alerta from '../components/Alerta'
+import Vacio from '../components/Vacio'
 
 function ClientesDeComercial({ comercialId, puedeGestionar }) {
   const [clientes, setClientes] = useState([])
@@ -25,7 +31,7 @@ function ClientesDeComercial({ comercialId, puedeGestionar }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 animate-fade-in">
       {grupos.map((grupo) => (
         <div key={grupo.fecha.toISOString()} className="space-y-2">
           <p className="text-xs font-semibold text-gray-500">{formatoTituloDia(grupo.fecha)}</p>
@@ -41,16 +47,14 @@ function ClientesDeComercial({ comercialId, puedeGestionar }) {
                     </p>
                   </div>
                   {c.efectivo ? (
-                    <span className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 shrink-0">Efectivo</span>
+                    <Badge color="emerald" dot>Efectivo</Badge>
                   ) : (
-                    <span className="text-xs rounded-full bg-gray-200 text-gray-600 px-2 py-0.5 shrink-0">
-                      Descartado: {c.motivoDescarte}
-                    </span>
+                    <Badge color="gray">Descartado: {c.motivoDescarte}</Badge>
                   )}
                 </div>
 
                 {puedeGestionar && !c.efectivo && (
-                  <button onClick={() => revertirDescarte(c.id)} className="mt-1 text-xs text-gray-500 underline">
+                  <button onClick={() => revertirDescarte(c.id)} className="mt-1 text-xs text-gray-500 hover:text-gray-900 transition-colors">
                     Fue un error, volver a marcar como efectivo
                   </button>
                 )}
@@ -58,27 +62,23 @@ function ClientesDeComercial({ comercialId, puedeGestionar }) {
                 {puedeGestionar && c.efectivo && (
                   <div className="mt-1">
                     {editando === c.id ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <select
-                          value={motivo}
-                          onChange={(e) => setMotivo(e.target.value)}
-                          className="text-xs rounded-lg border border-gray-300 px-2 py-1"
-                        >
+                      <div className="flex flex-wrap items-center gap-2 animate-slide-up">
+                        <select value={motivo} onChange={(e) => setMotivo(e.target.value)} className={INPUT_SM}>
                           {MOTIVOS_DESCARTE.map((m) => (
                             <option key={m} value={m}>
                               {m}
                             </option>
                           ))}
                         </select>
-                        <button onClick={() => handleDescartar(c.id)} className="text-xs text-red-700 underline">
+                        <Boton variante="peligro" tamano="sm" onClick={() => handleDescartar(c.id)}>
                           Confirmar descarte
-                        </button>
-                        <button onClick={() => setEditando(null)} className="text-xs text-gray-500">
+                        </Boton>
+                        <Boton variante="fantasma" tamano="sm" onClick={() => setEditando(null)}>
                           Cancelar
-                        </button>
+                        </Boton>
                       </div>
                     ) : (
-                      <button onClick={() => setEditando(c.id)} className="text-xs text-gray-500 underline">
+                      <button onClick={() => setEditando(c.id)} className="text-xs text-gray-500 hover:text-gray-900 transition-colors">
                         Marcar como no efectivo
                       </button>
                     )}
@@ -102,53 +102,57 @@ export default function ComercialesPage() {
   useEffect(() => suscribirUsuarios((todos) => setComerciales(todos.filter((u) => u.rol === 'comercial'))), [])
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
       <h1 className="text-lg font-semibold text-gray-900">Comerciales</h1>
       {!puedeGestionar && (
-        <p className="text-xs text-gray-500 bg-gray-100 rounded-lg p-3">
+        <Alerta tipo="info">
           Puedes ver el listado de clientes de cada comercial. Solo anfitriona y admin pueden marcar un cliente como no efectivo o su
           llegada.
-        </p>
+        </Alerta>
       )}
-      {comerciales.length === 0 && <p className="text-sm text-gray-500">Todavía no hay comerciales registrados.</p>}
+      {comerciales.length === 0 && <Vacio titulo="Todavía no hay comerciales registrados" />}
       <ul className="space-y-2">
-        {comerciales.map((c) => {
+        {comerciales.map((c, i) => {
           const llegadaHoy = c.ultimaLlegada?.fecha === fechaLocalYYYYMMDD() ? c.ultimaLlegada : null
+          const expandido = expandidoId === c.id
           return (
-            <li key={c.id} className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+            <Tarjeta key={c.id} animar style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }} className="p-3 space-y-2">
               <button
-                onClick={() => setExpandidoId(expandidoId === c.id ? null : c.id)}
+                onClick={() => setExpandidoId(expandido ? null : c.id)}
                 className="flex items-center justify-between w-full text-left"
               >
-                <p className="text-sm font-medium text-gray-900">
-                  <span className="text-gray-400 mr-1">{expandidoId === c.id ? '▾' : '▸'}</span>
+                <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${expandido ? 'rotate-90' : ''}`}
+                  >
+                    <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
                   {c.nombre}
                 </p>
-                <span className="text-xs text-gray-500 shrink-0">{c.activo === false ? 'Inactivo' : 'Activo'}</span>
+                <Badge color={c.activo === false ? 'gray' : 'emerald'}>{c.activo === false ? 'Inactivo' : 'Activo'}</Badge>
               </button>
 
-              <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-1.5">
+              <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5">
                 <span className="text-xs text-gray-600">
                   {llegadaHoy
                     ? `Llegó hoy a las ${new Date(llegadaHoy.horaISO).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`
                     : 'No ha marcado llegada hoy'}
                 </span>
                 {!llegadaHoy && puedeGestionar && (
-                  <button
-                    onClick={() => marcarLlegadaHoy(c.id)}
-                    className="text-xs rounded-lg border border-gray-300 px-2 py-1 text-gray-700 shrink-0"
-                  >
+                  <Boton variante="secundario" tamano="sm" onClick={() => marcarLlegadaHoy(c.id)} className="shrink-0">
                     Marcar llegada
-                  </button>
+                  </Boton>
                 )}
               </div>
 
-              {expandidoId === c.id && (
-                <div className="pl-4">
+              {expandido && (
+                <div className="pl-4 animate-slide-up">
                   <ClientesDeComercial comercialId={c.id} puedeGestionar={puedeGestionar} />
                 </div>
               )}
-            </li>
+            </Tarjeta>
           )
         })}
       </ul>

@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { registrarMovimiento } from '../features/movimientos/movimientosApi'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { useAuth } from '../context/AuthContext'
+import { INPUT } from '../lib/estilos'
+import Boton from './Boton'
+import Alerta from './Alerta'
 import CampoArchivo from './CampoArchivo'
 
 // Formulario reducido para comercial/directivo: solo adjuntos, porque el
@@ -64,8 +67,13 @@ export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, onLi
       </p>
 
       {tipo === 'entrega' && (
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={esCliente} onChange={(e) => setEsCliente(e.target.checked)} />
+        <label className="flex items-center gap-2 text-sm text-gray-700 select-none cursor-pointer">
+          <input
+            type="checkbox"
+            checked={esCliente}
+            onChange={(e) => setEsCliente(e.target.checked)}
+            className="rounded border-gray-300 text-gray-900 focus:ring-gray-900/10"
+          />
           Es para un cliente
         </label>
       )}
@@ -76,7 +84,7 @@ export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, onLi
           placeholder="Nombre del cliente"
           value={nombreCliente}
           onChange={(e) => setNombreCliente(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          className={`${INPUT} animate-slide-up`}
         />
       )}
 
@@ -110,15 +118,15 @@ export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, onLi
         />
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <Alerta tipo="error">{error}</Alerta>
       <div className="flex gap-2">
-        <button type="submit" disabled={enviando} className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm disabled:opacity-50">
+        <Boton type="submit" cargando={enviando}>
           {enviando ? 'Guardando…' : 'Guardar'}
-        </button>
+        </Boton>
         {onCancelar && (
-          <button type="button" onClick={onCancelar} className="text-sm text-gray-500">
+          <Boton type="button" variante="fantasma" onClick={onCancelar}>
             Cancelar
-          </button>
+          </Boton>
         )}
       </div>
     </form>

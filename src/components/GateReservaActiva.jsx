@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { suscribirReservasDeUsuario } from '../features/reservas/reservasApi'
 import { suscribirVehiculos } from '../features/vehiculos/vehiculosApi'
 import FormularioRegistroPropio from './FormularioRegistroPropio'
+import Tarjeta from './Tarjeta'
 
 const ROLES_CON_BLOQUEO = ['comercial', 'directivo']
 
@@ -49,20 +50,33 @@ export default function GateReservaActiva({ children }) {
   if (!vehiculo) return children
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white rounded-xl shadow p-6 space-y-4">
-        <div>
-          <h1 className="text-lg font-semibold text-gray-900">Registro obligatorio</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Tienes el vehículo <strong>{vehiculo.placa}</strong> reservado ahora mismo. Registra la entrega para poder seguir usando la
-            app.
-          </p>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 bg-[radial-gradient(circle_at_top,_rgba(217,119,6,0.06),_transparent_60%)]">
+      <Tarjeta className="w-full max-w-sm p-6 space-y-4 animate-scale-in">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-amber-700">
+              <path
+                d="M12 9v4m0 4h.01M10.29 3.86l-8.18 14.18A1.5 1.5 0 003.4 20.5h17.2a1.5 1.5 0 001.29-2.46L13.71 3.86a1.5 1.5 0 00-2.42 0z"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-base font-semibold text-gray-900">Registro obligatorio</h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Tienes el vehículo <strong className="text-gray-700">{vehiculo.placa}</strong> reservado ahora mismo. Registra la entrega
+              para poder seguir usando la app.
+            </p>
+          </div>
         </div>
         <FormularioRegistroPropio vehiculo={vehiculo} tipo="entrega" reserva={reservaEnCurso} />
-        <button onClick={() => signOut(auth)} className="w-full text-xs text-gray-400 underline">
+        <button onClick={() => signOut(auth)} className="w-full text-xs text-gray-400 hover:text-gray-600 transition-colors">
           Salir
         </button>
-      </div>
+      </Tarjeta>
     </div>
   )
 }

@@ -8,9 +8,15 @@ import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
 import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { parseFechaLocal } from '../lib/fechas'
+import { INPUT } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
 import CampoArchivo from '../components/CampoArchivo'
 import FormularioRegistroPropio from '../components/FormularioRegistroPropio'
+import Tarjeta from '../components/Tarjeta'
+import Boton from '../components/Boton'
+import Badge from '../components/Badge'
+import Alerta from '../components/Alerta'
+import Vacio from '../components/Vacio'
 
 const PATRON_PLACA = /^[A-Z]{3}[0-9]{3}$/
 const ROLES_GESTION_AMPLIA = ['admin', 'anfitriona']
@@ -23,10 +29,10 @@ const DURACIONES_ASIGNACION = [
 
 function EstadoBadge({ vehiculo, picoYPlacaConfig, asignadoAhora }) {
   const bloqueado = estaBloqueadoPorPicoYPlaca(vehiculo, picoYPlacaConfig)
-  if (vehiculo.estado === 'prestado') return <span className="text-xs rounded-full bg-amber-100 text-amber-800 px-3 py-1">En uso</span>
-  if (asignadoAhora) return <span className="text-xs rounded-full bg-blue-100 text-blue-800 px-3 py-1">Asignado</span>
-  if (bloqueado) return <span className="text-xs rounded-full bg-red-100 text-red-800 px-3 py-1">Pico y placa hoy</span>
-  return <span className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-3 py-1">Disponible</span>
+  if (vehiculo.estado === 'prestado') return <Badge color="amber" dot>En uso</Badge>
+  if (asignadoAhora) return <Badge color="blue" dot>Asignado</Badge>
+  if (bloqueado) return <Badge color="red" dot>Pico y placa hoy</Badge>
+  return <Badge color="emerald" dot>Disponible</Badge>
 }
 
 function ConsultaPicoYPlacaRapida({ vehiculo, picoYPlacaConfig }) {
@@ -48,38 +54,38 @@ function ConsultaPicoYPlacaRapida({ vehiculo, picoYPlacaConfig }) {
   const esUnSoloDia = desde && hasta && desde.getTime() === hasta.getTime()
 
   return (
-    <div className="mt-2 space-y-1 text-xs">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="mt-2.5 space-y-1.5 text-xs">
+      <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-gray-400">¿Pico y placa?</span>
-        <button onClick={() => chequearUnDia(hoy)} className="rounded-full border border-gray-300 px-2 py-1 text-gray-600">
+        <Boton variante="suave" tamano="sm" onClick={() => chequearUnDia(hoy)} className="!rounded-full">
           Hoy
-        </button>
-        <button onClick={() => chequearUnDia(manana)} className="rounded-full border border-gray-300 px-2 py-1 text-gray-600">
+        </Boton>
+        <Boton variante="suave" tamano="sm" onClick={() => chequearUnDia(manana)} className="!rounded-full">
           Mañana
-        </button>
-        <button onClick={() => setMostrarRango((v) => !v)} className="rounded-full border border-gray-300 px-2 py-1 text-gray-600">
+        </Boton>
+        <Boton variante="suave" tamano="sm" onClick={() => setMostrarRango((v) => !v)} className="!rounded-full">
           Varios días
-        </button>
+        </Boton>
       </div>
 
       {mostrarRango && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 animate-slide-up">
           <input
             type="date"
             onChange={(e) => e.target.value && setDesde(parseFechaLocal(e.target.value))}
-            className="rounded border border-gray-300 px-1 py-0.5 text-gray-600"
+            className="rounded-lg border border-gray-300 px-2 py-1 text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
           />
           <span className="text-gray-400">hasta</span>
           <input
             type="date"
             onChange={(e) => e.target.value && setHasta(parseFechaLocal(e.target.value))}
-            className="rounded border border-gray-300 px-1 py-0.5 text-gray-600"
+            className="rounded-lg border border-gray-300 px-2 py-1 text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
           />
         </div>
       )}
 
       {diasBloqueados !== null && (
-        <p className={`font-medium ${diasBloqueados.length > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+        <p className={`font-medium animate-fade-in ${diasBloqueados.length > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
           {vehiculo.esElectricoHibrido
             ? 'Exento (eléctrico/híbrido)'
             : diasBloqueados.length > 0
@@ -152,31 +158,18 @@ function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, onCerrar }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-2 space-y-3 bg-gray-50 rounded-lg p-3">
+    <form onSubmit={handleSubmit} className="mt-3 space-y-3 bg-gray-50 rounded-xl p-4 animate-slide-up">
       <p className="text-sm font-medium text-gray-900">
         {tipo === 'entrega' ? 'Vas a registrar: Entrega a cliente' : `Vas a registrar: Devolución${vehiculo.quienTiene ? ` de ${vehiculo.quienTiene.nombre}` : ''}`}
       </p>
-      {bloqueadoPorPicoYPlaca && (
-        <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">
-          Este vehículo tiene pico y placa hoy. Al guardar te vamos a pedir confirmación de que tienes autorización.
-        </p>
+      <Alerta tipo="advertencia">
+        {bloqueadoPorPicoYPlaca && 'Este vehículo tiene pico y placa hoy. Al guardar te vamos a pedir confirmación de que tienes autorización.'}
+      </Alerta>
+      {tipo === 'entrega' && (
+        <input required placeholder="Nombre del cliente" value={nombreCliente} onChange={(e) => setNombreCliente(e.target.value)} className={INPUT} />
       )}
       {tipo === 'entrega' && (
-        <input
-          required
-          placeholder="Nombre del cliente"
-          value={nombreCliente}
-          onChange={(e) => setNombreCliente(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        />
-      )}
-      {tipo === 'entrega' && (
-        <input
-          placeholder="Motivo (opcional)"
-          value={motivo}
-          onChange={(e) => setMotivo(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        />
+        <input placeholder="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} className={INPUT} />
       )}
       <CampoArchivo
         label="Fotos (obligatorio, varios ángulos + kilometraje)"
@@ -207,14 +200,14 @@ function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, onCerrar }
           onChange={(e) => setDocumento(e.target.files[0] ?? null)}
         />
       )}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <Alerta tipo="error">{error}</Alerta>
       <div className="flex gap-2">
-        <button type="submit" disabled={enviando} className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm disabled:opacity-50">
+        <Boton type="submit" cargando={enviando}>
           {enviando ? 'Guardando…' : 'Guardar'}
-        </button>
-        <button type="button" onClick={onCerrar} className="text-sm text-gray-500">
+        </Boton>
+        <Boton type="button" variante="fantasma" onClick={onCerrar}>
           Cancelar
-        </button>
+        </Boton>
       </div>
     </form>
   )
@@ -255,14 +248,9 @@ function FormularioAsignacionInstantanea({ vehiculo, personas, onCerrar }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-2 space-y-3 bg-gray-50 rounded-lg p-3">
+    <form onSubmit={handleSubmit} className="mt-3 space-y-3 bg-gray-50 rounded-xl p-4 animate-slide-up">
       <p className="text-sm font-medium text-gray-900">Asignar {vehiculo.placa} ahora</p>
-      <select
-        required
-        value={personaId}
-        onChange={(e) => setPersonaId(e.target.value)}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-      >
+      <select required value={personaId} onChange={(e) => setPersonaId(e.target.value)} className={INPUT}>
         <option value="">Selecciona comercial o directivo</option>
         {personas.map((p) => (
           <option key={p.id} value={p.id}>
@@ -270,11 +258,7 @@ function FormularioAsignacionInstantanea({ vehiculo, personas, onCerrar }) {
           </option>
         ))}
       </select>
-      <select
-        value={duracionHoras}
-        onChange={(e) => setDuracionHoras(Number(e.target.value))}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-      >
+      <select value={duracionHoras} onChange={(e) => setDuracionHoras(Number(e.target.value))} className={INPUT}>
         {DURACIONES_ASIGNACION.map((d) => (
           <option key={d.horas} value={d.horas}>
             {d.label}
@@ -284,14 +268,14 @@ function FormularioAsignacionInstantanea({ vehiculo, personas, onCerrar }) {
       <p className="text-xs text-gray-400">
         A esa persona le va a aparecer el registro obligatorio de entrega apenas entre a la app (o ya, si está adentro).
       </p>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <Alerta tipo="error">{error}</Alerta>
       <div className="flex gap-2">
-        <button type="submit" disabled={enviando} className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm disabled:opacity-50">
+        <Boton type="submit" cargando={enviando}>
           {enviando ? 'Asignando…' : 'Asignar'}
-        </button>
-        <button type="button" onClick={onCerrar} className="text-sm text-gray-500">
+        </Boton>
+        <Boton type="button" variante="fantasma" onClick={onCerrar}>
           Cancelar
-        </button>
+        </Boton>
       </div>
     </form>
   )
@@ -381,17 +365,22 @@ export default function VehiculosPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-lg font-semibold text-gray-900">Vehículos</h1>
+      <div className="flex items-baseline justify-between">
+        <h1 className="text-lg font-semibold text-gray-900">Vehículos</h1>
+        {vehiculos.length > 0 && <span className="text-xs text-gray-400">{vehiculos.length} en total</span>}
+      </div>
+
+      {vehiculos.length === 0 && <Vacio titulo="Todavía no hay vehículos" descripcion="Un admin puede agregar el primero abajo." />}
 
       <ul className="space-y-3">
-        {vehiculos.map((v) => {
+        {vehiculos.map((v, i) => {
           const relacion = gestionAmplia ? null : relacionPropia(v)
           const reservaAsignada = v.estado === 'disponible' ? reservaAsignadaAhora(v.id) : null
           return (
-            <li key={v.id} className="bg-white rounded-lg border border-gray-200 p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{v.placa}</p>
+            <Tarjeta key={v.id} interactiva animar className="p-4" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 tracking-wide">{v.placa}</p>
                   <p className="text-xs text-gray-500">
                     {v.marcaModelo} {v.esElectricoHibrido && '· eléctrico/híbrido'}
                   </p>
@@ -406,19 +395,19 @@ export default function VehiculosPage() {
               </div>
               <ConsultaPicoYPlacaRapida vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} />
 
-              <div className="mt-2 flex flex-wrap gap-3 text-sm">
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
                 {gestionAmplia && (
                   <>
                     <button
                       onClick={() => setAccionAbierta(accionAbierta === `${v.id}-mov` ? null : `${v.id}-mov`)}
-                      className="text-gray-900 underline"
+                      className="text-gray-900 font-medium hover:underline underline-offset-2 transition-colors"
                     >
                       {v.estado === 'prestado' ? 'Registrar devolución' : 'Prestar a cliente'}
                     </button>
                     {v.estado === 'disponible' && (
                       <button
                         onClick={() => setAccionAbierta(accionAbierta === `${v.id}-asig` ? null : `${v.id}-asig`)}
-                        className="text-gray-500 underline"
+                        className="text-gray-500 hover:text-gray-900 hover:underline underline-offset-2 transition-colors"
                       >
                         Asignar a comercial/directivo
                       </button>
@@ -428,7 +417,7 @@ export default function VehiculosPage() {
                 {!gestionAmplia && relacion.tipo === 'devolucion' && (
                   <button
                     onClick={() => setAccionAbierta(accionAbierta === `${v.id}-mov` ? null : `${v.id}-mov`)}
-                    className="text-gray-900 underline"
+                    className="text-gray-900 font-medium hover:underline underline-offset-2 transition-colors"
                   >
                     Registrar devolución
                   </button>
@@ -436,12 +425,12 @@ export default function VehiculosPage() {
                 {!gestionAmplia && relacion.tipo === 'anticipada' && (
                   <button
                     onClick={() => setAccionAbierta(accionAbierta === `${v.id}-mov` ? null : `${v.id}-mov`)}
-                    className="text-gray-900 underline"
+                    className="text-gray-900 font-medium hover:underline underline-offset-2 transition-colors"
                   >
                     Registrar entrega anticipada
                   </button>
                 )}
-                <Link to="/reservas" className="text-gray-500 underline">
+                <Link to="/reservas" className="text-gray-500 hover:text-gray-900 hover:underline underline-offset-2 transition-colors">
                   Ver / crear reservas
                 </Link>
               </div>
@@ -457,7 +446,7 @@ export default function VehiculosPage() {
                 <FormularioAsignacionInstantanea vehiculo={v} personas={personasAsignables} onCerrar={() => setAccionAbierta(null)} />
               )}
               {!gestionAmplia && accionAbierta === `${v.id}-mov` && relacion.tipo !== 'ninguna' && (
-                <div className="mt-2 bg-gray-50 rounded-lg p-3">
+                <div className="mt-3 bg-gray-50 rounded-xl p-4 animate-slide-up">
                   <FormularioRegistroPropio
                     vehiculo={v}
                     tipo={relacion.tipo === 'devolucion' ? 'recepcion' : 'entrega'}
@@ -467,40 +456,35 @@ export default function VehiculosPage() {
                   />
                 </div>
               )}
-            </li>
+            </Tarjeta>
           )
         })}
       </ul>
 
       {rol === 'admin' && (
-        <form onSubmit={handleCrearVehiculo} className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+        <Tarjeta className="p-4 space-y-3">
           <h2 className="text-sm font-semibold text-gray-900">Agregar vehículo</h2>
-          <div>
-            <input
-              required
-              placeholder="Ej: ABC123"
-              value={nuevaPlaca}
-              onChange={(e) => handlePlacaChange(e.target.value)}
-              maxLength={6}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase"
-            />
-            <p className="text-xs text-gray-400 mt-1">Formato: 3 letras + 3 números, sin espacios ni guion (ej: ABC123).</p>
-          </div>
-          <input
-            placeholder="Marca / modelo"
-            value={nuevoModelo}
-            onChange={(e) => setNuevoModelo(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={nuevoElectrico} onChange={(e) => setNuevoElectrico(e.target.checked)} />
-            Es eléctrico o híbrido (exento de pico y placa)
-          </label>
-          {errorVehiculo && <p className="text-sm text-red-600">{errorVehiculo}</p>}
-          <button type="submit" className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm">
-            Agregar
-          </button>
-        </form>
+          <form onSubmit={handleCrearVehiculo} className="space-y-3">
+            <div>
+              <input
+                required
+                placeholder="Ej: ABC123"
+                value={nuevaPlaca}
+                onChange={(e) => handlePlacaChange(e.target.value)}
+                maxLength={6}
+                className={`${INPUT} uppercase`}
+              />
+              <p className="text-xs text-gray-400 mt-1">Formato: 3 letras + 3 números, sin espacios ni guion (ej: ABC123).</p>
+            </div>
+            <input placeholder="Marca / modelo" value={nuevoModelo} onChange={(e) => setNuevoModelo(e.target.value)} className={INPUT} />
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" checked={nuevoElectrico} onChange={(e) => setNuevoElectrico(e.target.checked)} />
+              Es eléctrico o híbrido (exento de pico y placa)
+            </label>
+            <Alerta tipo="error">{errorVehiculo}</Alerta>
+            <Boton type="submit">Agregar</Boton>
+          </form>
+        </Tarjeta>
       )}
     </div>
   )

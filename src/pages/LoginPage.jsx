@@ -3,6 +3,29 @@ import { useNavigate } from 'react-router-dom'
 import { signInWithEmailAndPassword } from 'firebase/auth'
 import { auth } from '../firebase/config'
 import { enviarCorreoRestablecerPassword } from '../features/usuarios/usuariosApi'
+import { INPUT } from '../lib/estilos'
+import Boton from '../components/Boton'
+import Alerta from '../components/Alerta'
+
+function Marca() {
+  return (
+    <div className="flex flex-col items-center gap-3 mb-2">
+      <div className="w-12 h-12 rounded-2xl bg-gray-900 flex items-center justify-center shadow-sm">
+        <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white">
+          <path
+            d="M3 13l1.5-4.5A2 2 0 016.4 7h11.2a2 2 0 011.9 1.5L21 13M5 13h14v5a1 1 0 01-1 1h-1a1 1 0 01-1-1v-1H8v1a1 1 0 01-1 1H6a1 1 0 01-1-1v-5z"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+          <circle cx="7.5" cy="16" r="0.8" fill="currentColor" />
+          <circle cx="16.5" cy="16" r="0.8" fill="currentColor" />
+        </svg>
+      </div>
+      <h1 className="text-lg font-semibold text-gray-900">Gestión de Vehículos</h1>
+    </div>
+  )
+}
 
 function FormularioOlvideContrasena({ onVolver }) {
   const [email, setEmail] = useState('')
@@ -24,28 +47,21 @@ function FormularioOlvideContrasena({ onVolver }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white rounded-xl shadow p-6 space-y-4">
-      <h1 className="text-xl font-semibold text-gray-900">Recuperar contraseña</h1>
-      <p className="text-sm text-gray-600">Escribe tu correo y te mandamos un enlace para poner una contraseña nueva.</p>
+    <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white rounded-2xl shadow-lg shadow-gray-900/5 border border-gray-100 p-7 space-y-4 animate-scale-in">
+      <Marca />
+      <div>
+        <h2 className="text-base font-medium text-gray-900">Recuperar contraseña</h2>
+        <p className="text-sm text-gray-500 mt-1">Escribe tu correo y te mandamos un enlace para poner una contraseña nueva.</p>
+      </div>
       <div>
         <label className="block text-sm text-gray-600 mb-1">Correo</label>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2"
-        />
+        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={INPUT} />
       </div>
-      {mensaje && <p className="text-sm text-gray-600">{mensaje}</p>}
-      <button
-        type="submit"
-        disabled={enviando}
-        className="w-full rounded-lg bg-gray-900 text-white py-2 font-medium disabled:opacity-50"
-      >
+      <Alerta tipo="info">{mensaje}</Alerta>
+      <Boton type="submit" cargando={enviando} className="w-full">
         {enviando ? 'Enviando…' : 'Enviar enlace'}
-      </button>
-      <button type="button" onClick={onVolver} className="w-full text-sm text-gray-500 underline">
+      </Boton>
+      <button type="button" onClick={onVolver} className="w-full text-sm text-gray-500 hover:text-gray-900 transition-colors">
         Volver a iniciar sesión
       </button>
     </form>
@@ -74,27 +90,27 @@ export default function LoginPage() {
     }
   }
 
+  const fondo =
+    'min-h-screen flex items-center justify-center px-4 bg-gray-50 bg-[radial-gradient(circle_at_top,_rgba(17,24,39,0.05),_transparent_60%)]'
+
   if (mostrarOlvide) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className={fondo}>
         <FormularioOlvideContrasena onVolver={() => setMostrarOlvide(false)} />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-white rounded-xl shadow p-6 space-y-4">
-        <h1 className="text-xl font-semibold text-gray-900">Iniciar sesión</h1>
+    <div className={fondo}>
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm bg-white rounded-2xl shadow-lg shadow-gray-900/5 border border-gray-100 p-7 space-y-4 animate-scale-in"
+      >
+        <Marca />
         <div>
           <label className="block text-sm text-gray-600 mb-1">Correo</label>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
-          />
+          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={INPUT} />
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Contraseña</label>
@@ -103,18 +119,18 @@ export default function LoginPage() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2"
+            className={INPUT}
           />
         </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={enviando}
-          className="w-full rounded-lg bg-gray-900 text-white py-2 font-medium disabled:opacity-50"
-        >
+        <Alerta tipo="error">{error}</Alerta>
+        <Boton type="submit" cargando={enviando} className="w-full">
           {enviando ? 'Ingresando…' : 'Ingresar'}
-        </button>
-        <button type="button" onClick={() => setMostrarOlvide(true)} className="w-full text-sm text-gray-500 underline">
+        </Boton>
+        <button
+          type="button"
+          onClick={() => setMostrarOlvide(true)}
+          className="w-full text-sm text-gray-500 hover:text-gray-900 transition-colors"
+        >
           ¿Olvidaste tu contraseña?
         </button>
       </form>

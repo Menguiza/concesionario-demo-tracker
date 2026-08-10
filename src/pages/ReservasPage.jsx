@@ -11,7 +11,13 @@ import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
 import { diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
+import { INPUT } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
+import Tarjeta from '../components/Tarjeta'
+import Boton from '../components/Boton'
+import Badge from '../components/Badge'
+import Alerta from '../components/Alerta'
+import Vacio from '../components/Vacio'
 
 const ROLES_QUE_PUEDEN_GESTIONAR = ['admin', 'anfitriona', 'directivo']
 
@@ -24,6 +30,14 @@ function formatoHora(timestamp) {
 }
 
 const DIAS_SEMANA_CORTOS = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
+
+function BadgeResultado({ reserva }) {
+  if (reserva.estado === 'cancelada') return <Badge color="gray">Cancelada</Badge>
+  if (reserva.resultado === 'pendiente') return <Badge color="emerald" dot>Activa</Badge>
+  if (reserva.resultado === 'cumplida') return <Badge color="blue">Cumplida</Badge>
+  if (reserva.resultado === 'incumplida') return <Badge color="red">Incumplida</Badge>
+  return null
+}
 
 function CalendarioReservas({ reservas, vehiculosPorId }) {
   const [mesActual, setMesActual] = useState(() => {
@@ -59,32 +73,34 @@ function CalendarioReservas({ reservas, vehiculosPorId }) {
   const hoy = new Date()
   const esMesActual = hoy.getFullYear() === mesActual.getFullYear() && hoy.getMonth() === mesActual.getMonth()
 
+  function cambiarMes(delta) {
+    setMesActual((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1))
+  }
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+    <Tarjeta className="p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <button
-          onClick={() => setMesActual((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
-          className="text-sm text-gray-500 px-2"
-        >
-          ← Anterior
+        <button onClick={() => cambiarMes(-1)} className="text-gray-400 hover:text-gray-900 transition-colors p-1.5 rounded-lg hover:bg-gray-100">
+          <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
-        <h3 className="text-sm font-semibold text-gray-900 capitalize">
+        <h3 key={mesActual.toISOString()} className="text-sm font-semibold text-gray-900 capitalize animate-fade-in">
           {mesActual.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}
         </h3>
-        <button
-          onClick={() => setMesActual((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
-          className="text-sm text-gray-500 px-2"
-        >
-          Siguiente →
+        <button onClick={() => cambiarMes(1)} className="text-gray-400 hover:text-gray-900 transition-colors p-1.5 rounded-lg hover:bg-gray-100">
+          <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
+            <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-400">
+      <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-400 font-medium">
         {DIAS_SEMANA_CORTOS.map((d, i) => (
           <div key={i}>{d}</div>
         ))}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div key={mesActual.toISOString() + '-grid'} className="grid grid-cols-7 gap-1 animate-fade-in">
         {celdas.map((d, i) =>
           d === null ? (
             <div key={i} />
@@ -92,13 +108,17 @@ function CalendarioReservas({ reservas, vehiculosPorId }) {
             <button
               key={i}
               onClick={() => setDiaSeleccionado(d)}
-              className={`aspect-square rounded-lg text-xs flex flex-col items-center justify-center gap-0.5 border p-0.5 ${
-                diaSeleccionado === d ? 'border-gray-900 bg-gray-50' : reservasPorDia[d] ? 'border-amber-200 bg-amber-50' : 'border-gray-100'
-              } ${esMesActual && d === hoy.getDate() ? 'font-semibold' : ''}`}
+              className={`aspect-square rounded-lg text-xs flex flex-col items-center justify-center gap-0.5 border p-0.5 transition-all duration-150 ${
+                diaSeleccionado === d
+                  ? 'border-gray-900 bg-gray-900 text-white shadow-sm'
+                  : reservasPorDia[d]
+                    ? 'border-amber-200 bg-amber-50 hover:border-amber-300'
+                    : 'border-gray-100 hover:border-gray-300 hover:bg-gray-50'
+              } ${esMesActual && d === hoy.getDate() && diaSeleccionado !== d ? 'ring-1 ring-inset ring-gray-300 font-semibold' : ''}`}
             >
               <span>{d}</span>
               {reservasPorDia[d] && (
-                <span className="text-[9px] leading-none text-amber-800 truncate max-w-full">
+                <span className={`text-[9px] leading-none truncate max-w-full ${diaSeleccionado === d ? 'text-white/80' : 'text-amber-800'}`}>
                   {reservasPorDia[d].length === 1
                     ? vehiculosPorId[reservasPorDia[d][0].vehiculoId]?.placa
                     : `${reservasPorDia[d].length} autos`}
@@ -110,7 +130,7 @@ function CalendarioReservas({ reservas, vehiculosPorId }) {
       </div>
 
       {diaSeleccionado && (
-        <div className="border-t border-gray-100 pt-2 space-y-2">
+        <div key={`${mesActual.toISOString()}-${diaSeleccionado}`} className="border-t border-gray-100 pt-3 space-y-2 animate-fade-in">
           <p className="text-xs font-medium text-gray-700 capitalize">
             {new Date(mesActual.getFullYear(), mesActual.getMonth(), diaSeleccionado).toLocaleDateString('es-CO', {
               weekday: 'long',
@@ -120,7 +140,7 @@ function CalendarioReservas({ reservas, vehiculosPorId }) {
           </p>
           {(reservasPorDia[diaSeleccionado] ?? []).length === 0 && <p className="text-xs text-gray-400">Sin reservas ese día.</p>}
           {(reservasPorDia[diaSeleccionado] ?? []).map((r) => (
-            <div key={r.id} className="text-xs text-gray-600">
+            <div key={r.id} className="text-xs text-gray-600 bg-gray-50 rounded-lg px-2.5 py-1.5">
               <span className="font-medium text-gray-900">{vehiculosPorId[r.vehiculoId]?.placa ?? '—'}</span>{' '}
               {formatoHora(r.fechaInicio)}–{formatoHora(r.fechaFin)} · {r.solicitadoPor?.nombre}
               {r.motivo && ` (${r.motivo})`}
@@ -128,7 +148,7 @@ function CalendarioReservas({ reservas, vehiculosPorId }) {
           ))}
         </div>
       )}
-    </div>
+    </Tarjeta>
   )
 }
 
@@ -250,123 +270,96 @@ export default function ReservasPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <h1 className="text-lg font-semibold text-gray-900">Reservas de vehículos</h1>
 
       {!puedeGestionar && (
-        <p className="text-sm text-gray-600 bg-gray-100 rounded-lg p-3">
-          Puedes ver la disponibilidad de los vehículos aquí. Para reservar uno, pídeselo a la anfitriona.
-        </p>
+        <Alerta tipo="info">Puedes ver la disponibilidad de los vehículos aquí. Para reservar uno, pídeselo a la anfitriona.</Alerta>
       )}
 
       {puedeGestionar && (
-      <form onSubmit={handleCrear} className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-        <h2 className="text-sm font-semibold text-gray-900">Nueva reserva</h2>
-        <select
-          required
-          value={vehiculoId}
-          onChange={(e) => setVehiculoId(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        >
-          <option value="">Selecciona vehículo</option>
-          {vehiculos.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.placa} {v.marcaModelo ? `— ${v.marcaModelo}` : ''}
-            </option>
-          ))}
-        </select>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Desde</label>
-            <input
-              required
-              type="datetime-local"
-              value={inicio}
-              onChange={(e) => setInicio(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Hasta</label>
-            <input
-              required
-              type="datetime-local"
-              value={fin}
-              onChange={(e) => setFin(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <select
-            value={quienTipo}
-            onChange={(e) => handleCambiarQuienTipo(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          >
-            <option value="comercial">Comercial</option>
-            <option value="cliente">Cliente</option>
-            <option value="directivo">Directivo</option>
-          </select>
-
-          {quienTipo === 'cliente' ? (
-            <input
-              required
-              placeholder="Nombre del cliente"
-              value={quienNombreLibre}
-              onChange={(e) => setQuienNombreLibre(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          ) : (
-            <>
-              <select
-                required
-                value={quienSeleccion}
-                onChange={(e) => setQuienSeleccion(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              >
-                <option value="">Selecciona {quienTipo === 'comercial' ? 'comercial' : 'directivo'}</option>
-                {listaPersonas.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nombre}
-                  </option>
-                ))}
-                <option value="otro">Otro (no está en la lista)</option>
+        <Tarjeta className="p-4">
+          <form onSubmit={handleCrear} className="space-y-3">
+            <h2 className="text-sm font-semibold text-gray-900">Nueva reserva</h2>
+            <select required value={vehiculoId} onChange={(e) => setVehiculoId(e.target.value)} className={INPUT}>
+              <option value="">Selecciona vehículo</option>
+              {vehiculos.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.placa} {v.marcaModelo ? `— ${v.marcaModelo}` : ''}
+                </option>
+              ))}
+            </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Desde</label>
+                <input required type="datetime-local" value={inicio} onChange={(e) => setInicio(e.target.value)} className={INPUT} />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Hasta</label>
+                <input required type="datetime-local" value={fin} onChange={(e) => setFin(e.target.value)} className={INPUT} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <select value={quienTipo} onChange={(e) => handleCambiarQuienTipo(e.target.value)} className={INPUT}>
+                <option value="comercial">Comercial</option>
+                <option value="cliente">Cliente</option>
+                <option value="directivo">Directivo</option>
               </select>
-              {quienSeleccion === 'otro' && (
+
+              {quienTipo === 'cliente' ? (
                 <input
                   required
-                  placeholder="Nombre"
+                  placeholder="Nombre del cliente"
                   value={quienNombreLibre}
                   onChange={(e) => setQuienNombreLibre(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  className={`${INPUT} animate-slide-up`}
                 />
+              ) : (
+                <div className="space-y-2 animate-slide-up">
+                  <select required value={quienSeleccion} onChange={(e) => setQuienSeleccion(e.target.value)} className={INPUT}>
+                    <option value="">Selecciona {quienTipo === 'comercial' ? 'comercial' : 'directivo'}</option>
+                    {listaPersonas.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.nombre}
+                      </option>
+                    ))}
+                    <option value="otro">Otro (no está en la lista)</option>
+                  </select>
+                  {quienSeleccion === 'otro' && (
+                    <input
+                      required
+                      placeholder="Nombre"
+                      value={quienNombreLibre}
+                      onChange={(e) => setQuienNombreLibre(e.target.value)}
+                      className={`${INPUT} animate-slide-up`}
+                    />
+                  )}
+                </div>
               )}
-            </>
-          )}
-        </div>
-        <input
-          placeholder="Motivo (opcional)"
-          value={motivo}
-          onChange={(e) => setMotivo(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        />
-        <button type="submit" disabled={enviando} className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm disabled:opacity-50">
-          {enviando ? 'Reservando…' : 'Reservar'}
-        </button>
-        {mensaje && <p className="text-sm text-gray-600">{mensaje}</p>}
-      </form>
+            </div>
+            <input placeholder="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} className={INPUT} />
+            <Boton type="submit" cargando={enviando}>
+              {enviando ? 'Reservando…' : 'Reservar'}
+            </Boton>
+            <Alerta tipo="info">{mensaje}</Alerta>
+          </form>
+        </Tarjeta>
       )}
 
       <div className="flex gap-2">
         <button
           onClick={() => setVista('calendario')}
-          className={`text-sm rounded-lg px-3 py-1.5 ${vista === 'calendario' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-300 text-gray-600'}`}
+          className={`text-sm rounded-lg px-3 py-1.5 transition-colors ${
+            vista === 'calendario' ? 'bg-gray-900 text-white shadow-sm' : 'bg-white border border-gray-300 text-gray-600 hover:border-gray-400'
+          }`}
         >
           Calendario
         </button>
         <button
           onClick={() => setVista('lista')}
-          className={`text-sm rounded-lg px-3 py-1.5 ${vista === 'lista' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-300 text-gray-600'}`}
+          className={`text-sm rounded-lg px-3 py-1.5 transition-colors ${
+            vista === 'lista' ? 'bg-gray-900 text-white shadow-sm' : 'bg-white border border-gray-300 text-gray-600 hover:border-gray-400'
+          }`}
         >
           Lista
         </button>
@@ -375,33 +368,22 @@ export default function ReservasPage() {
       {vista === 'calendario' && <CalendarioReservas reservas={reservas} vehiculosPorId={vehiculosPorId} />}
 
       {vista === 'lista' && (
-        <div className="space-y-2">
+        <div className="space-y-3 animate-fade-in">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-900">Reservas</h2>
-            <button onClick={() => setMostrarCanceladas((v) => !v)} className="text-xs text-gray-500 underline">
+            <button onClick={() => setMostrarCanceladas((v) => !v)} className="text-xs text-gray-500 hover:text-gray-900 transition-colors">
               {mostrarCanceladas ? 'Ocultar canceladas' : 'Ver canceladas'}
             </button>
           </div>
-          {reservasVisibles.length === 0 && <p className="text-sm text-gray-500">No hay reservas.</p>}
+          {reservasVisibles.length === 0 && <Vacio titulo="No hay reservas" />}
           <ul className="space-y-2">
-            {reservasVisibles.map((r) => {
+            {reservasVisibles.map((r, i) => {
               const vehiculo = vehiculosPorId[r.vehiculoId]
               return (
-                <li key={r.id} className="bg-white rounded-lg border border-gray-200 p-3 space-y-1">
+                <Tarjeta key={r.id} animar style={{ animationDelay: `${Math.min(i, 10) * 30}ms` }} className="p-3 space-y-1">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-gray-900">{vehiculo?.placa ?? 'Vehículo eliminado'}</p>
-                    {r.estado === 'cancelada' && (
-                      <span className="text-xs rounded-full bg-gray-200 text-gray-600 px-3 py-1">Cancelada</span>
-                    )}
-                    {r.estado === 'activa' && r.resultado === 'pendiente' && (
-                      <span className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-3 py-1">Activa</span>
-                    )}
-                    {r.estado === 'activa' && r.resultado === 'cumplida' && (
-                      <span className="text-xs rounded-full bg-blue-100 text-blue-800 px-3 py-1">Cumplida</span>
-                    )}
-                    {r.estado === 'activa' && r.resultado === 'incumplida' && (
-                      <span className="text-xs rounded-full bg-red-100 text-red-800 px-3 py-1">Incumplida</span>
-                    )}
+                    <BadgeResultado reserva={r} />
                   </div>
                   <p className="text-xs text-gray-500">
                     {formatoFechaHora(r.fechaInicio)} → {formatoFechaHora(r.fechaFin)}
@@ -411,11 +393,11 @@ export default function ReservasPage() {
                     {r.motivo && ` · ${r.motivo}`}
                   </p>
                   {puedeGestionar && r.estado === 'activa' && r.resultado === 'pendiente' && (
-                    <button onClick={() => handleCancelar(r.id)} className="text-xs text-red-700 underline">
+                    <button onClick={() => handleCancelar(r.id)} className="text-xs text-red-600 hover:text-red-800 transition-colors">
                       Cancelar reserva
                     </button>
                   )}
-                </li>
+                </Tarjeta>
               )
             })}
           </ul>

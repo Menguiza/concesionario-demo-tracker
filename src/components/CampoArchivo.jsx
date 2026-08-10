@@ -55,10 +55,19 @@ export default function CampoArchivo({ label, icono = 'documento', archivos, tex
       <label className="block text-xs text-gray-500 mb-1">{label}</label>
       <label
         htmlFor={id}
-        className="flex items-center gap-2 rounded-lg border border-dashed border-gray-300 px-3 py-2.5 text-sm text-gray-600 cursor-pointer hover:bg-gray-50 hover:border-gray-400"
+        className={`flex items-center gap-2 rounded-lg border border-dashed px-3 py-2.5 text-sm cursor-pointer transition-colors ${
+          archivos.length > 0
+            ? 'border-gray-300 bg-gray-50 text-gray-700'
+            : 'border-gray-300 text-gray-500 hover:bg-gray-50 hover:border-gray-400'
+        }`}
       >
         <Icono />
-        <span className="truncate">{descripcion}</span>
+        <span className="truncate flex-1">{descripcion}</span>
+        {archivos.length > 0 && (
+          <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-emerald-600 shrink-0">
+            <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
       </label>
       <input id={id} type="file" onChange={onChange} className="hidden" {...inputProps} />
     </div>

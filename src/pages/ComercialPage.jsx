@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react'
 import { suscribirClientesDeComercial, marcarDescarte, revertirDescarte } from '../features/clientes/clientesApi'
 import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
 import { agruparClientesPorDia, formatoTituloDia } from '../lib/agruparClientesPorDia'
+import { INPUT_SM } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
+import Tarjeta from '../components/Tarjeta'
+import Badge from '../components/Badge'
+import Boton from '../components/Boton'
+import Vacio from '../components/Vacio'
 
 export default function ComercialPage() {
   const { firebaseUser } = useAuth()
@@ -25,23 +30,23 @@ export default function ComercialPage() {
   const grupos = agruparClientesPorDia(visibles)
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900">Mis clientes</h1>
-        <button onClick={() => setMostrarDescartados((v) => !v)} className="text-xs text-gray-500 underline">
+        <button onClick={() => setMostrarDescartados((v) => !v)} className="text-xs text-gray-500 hover:text-gray-900 transition-colors">
           {mostrarDescartados ? 'Ocultar descartados' : 'Ver descartados'}
         </button>
       </div>
 
-      {grupos.length === 0 && <p className="text-sm text-gray-500">Todavía no tienes clientes registrados.</p>}
+      {grupos.length === 0 && <Vacio titulo="Todavía no tienes clientes registrados" />}
 
       {grupos.map((grupo) => (
         <div key={grupo.fecha.toISOString()} className="space-y-2">
           <p className="text-xs font-semibold text-gray-500">{formatoTituloDia(grupo.fecha)}</p>
           <ul className="space-y-2">
-            {grupo.clientes.map((c) => (
-              <li key={c.id} className="bg-white rounded-lg border border-gray-200 p-3">
-                <div className="flex items-center justify-between">
+            {grupo.clientes.map((c, i) => (
+              <Tarjeta key={c.id} animar style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }} className="p-3">
+                <div className="flex items-center justify-between gap-2">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{c.nombre}</p>
                     <p className="text-xs text-gray-500">
@@ -49,46 +54,42 @@ export default function ComercialPage() {
                     </p>
                   </div>
                   {c.efectivo ? (
-                    <span className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-3 py-1">Efectivo</span>
+                    <Badge color="emerald" dot>Efectivo</Badge>
                   ) : (
-                    <span className="text-xs rounded-full bg-gray-200 text-gray-600 px-3 py-1">Descartado: {c.motivoDescarte}</span>
+                    <Badge color="gray">Descartado: {c.motivoDescarte}</Badge>
                   )}
                 </div>
                 {!c.efectivo && (
-                  <button onClick={() => revertirDescarte(c.id)} className="mt-2 text-sm text-gray-500 underline">
+                  <button onClick={() => revertirDescarte(c.id)} className="mt-2 text-xs text-gray-500 hover:text-gray-900 transition-colors">
                     Fue un error, volver a marcar como efectivo
                   </button>
                 )}
                 {c.efectivo && (
                   <div className="mt-2">
                     {editando === c.id ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <select
-                          value={motivo}
-                          onChange={(e) => setMotivo(e.target.value)}
-                          className="text-sm rounded-lg border border-gray-300 px-2 py-1"
-                        >
+                      <div className="flex flex-wrap items-center gap-2 animate-slide-up">
+                        <select value={motivo} onChange={(e) => setMotivo(e.target.value)} className={INPUT_SM}>
                           {MOTIVOS_DESCARTE.map((m) => (
                             <option key={m} value={m}>
                               {m}
                             </option>
                           ))}
                         </select>
-                        <button onClick={() => handleDescartar(c.id)} className="text-sm text-red-700 underline">
+                        <Boton variante="peligro" tamano="sm" onClick={() => handleDescartar(c.id)}>
                           Confirmar descarte
-                        </button>
-                        <button onClick={() => setEditando(null)} className="text-sm text-gray-500">
+                        </Boton>
+                        <Boton variante="fantasma" tamano="sm" onClick={() => setEditando(null)}>
                           Cancelar
-                        </button>
+                        </Boton>
                       </div>
                     ) : (
-                      <button onClick={() => setEditando(c.id)} className="text-sm text-gray-500 underline">
+                      <button onClick={() => setEditando(c.id)} className="text-xs text-gray-500 hover:text-gray-900 transition-colors">
                         Marcar como no efectivo
                       </button>
                     )}
                   </div>
                 )}
-              </li>
+              </Tarjeta>
             ))}
           </ul>
         </div>
