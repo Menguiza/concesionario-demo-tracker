@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { registrarMovimiento } from '../features/movimientos/movimientosApi'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
+import { fotosFaltantes } from '../lib/fotosVehiculo'
 import { useAuth } from '../context/AuthContext'
 import { INPUT } from '../lib/estilos'
 import Boton from './Boton'
 import Alerta from './Alerta'
 import CampoArchivo from './CampoArchivo'
+import FotosVehiculo from './FotosVehiculo'
 
 // Formulario reducido para comercial/directivo: solo adjuntos, porque el
 // quién y el motivo ya viven en la reserva. Se usa tanto para el registro
@@ -16,18 +18,23 @@ export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, onLi
   const { firebaseUser, perfil, rol } = useAuth()
   const [esCliente, setEsCliente] = useState(false)
   const [nombreCliente, setNombreCliente] = useState('')
-  const [fotos, setFotos] = useState([])
+  const [fotos, setFotos] = useState({})
   const [video, setVideo] = useState(null)
   const [documento, setDocumento] = useState(null)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
 
+  function handleFotoChange(lado, archivo) {
+    setFotos((prev) => ({ ...prev, [lado]: archivo }))
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
 
-    if (fotos.length === 0) {
-      setError('Toma al menos una foto antes de guardar.')
+    const faltantes = fotosFaltantes(fotos)
+    if (faltantes.length > 0) {
+      setError(`Faltan fotos: ${faltantes.map((f) => f.label).join(', ')}.`)
       return
     }
     if (tipo === 'entrega' && esCliente && !documento) {
@@ -40,12 +47,15 @@ export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, onLi
       const yo = { tipo: rol, nombre: perfil?.nombre ?? '', uid: firebaseUser.uid }
       const cliente = { tipo: 'cliente', nombre: nombreCliente, uid: null }
 
+      // Este formulario es autogestionado: nadie del concesionario confirma
+      // quién entregó (en una entrega) ni quién recibió (en una devolución)
+      // porque no hay ningún campo que lo pregunte — dejarlo en null es lo
+      // honesto, en vez de rellenarlo con un valor inventado.
       await registrarMovimiento({
         vehiculoId: vehiculo.id,
         tipo,
-        quienRecibe: tipo === 'entrega' ? (esCliente ? cliente : yo) : yo,
-        quienEntrega:
-          tipo === 'entrega' ? { tipo: 'sistema', nombre: 'Registro por reserva' } : (vehiculo.quienTiene ?? yo),
+        quienRecibe: tipo === 'entrega' ? (esCliente ? cliente : yo) : null,
+        quienEntrega: tipo === 'entrega' ? null : yo,
         motivo: reserva?.motivo ?? null,
         fotos,
         video,
@@ -88,16 +98,8 @@ export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, onLi
         />
       )}
 
-      <CampoArchivo
-        label="Fotos (obligatorio, varios ángulos + kilometraje)"
-        icono="camara"
-        accept="image/*"
-        capture="environment"
-        multiple
-        archivos={fotos}
-        textoVacio="Toca para tomar o elegir fotos"
-        onChange={(e) => setFotos(Array.from(e.target.files))}
-      />
+      <FotosVehiculo fotos={fotos} onChange={handleFotoChange} />
+
       <CampoArchivo
         label="Video (opcional)"
         icono="video"

@@ -2,7 +2,8 @@ import ExcelJS from 'exceljs'
 
 const COLOR_ENCABEZADO = 'FF111827'
 const COLOR_TEXTO_ENCABEZADO = 'FFFFFFFF'
-const ALTO_FILA_CON_FOTOS = 62
+const COLOR_ENLACE = 'FF2563EB'
+export const ALTO_FILA_DATOS = 58
 
 export function crearLibro() {
   const libro = new ExcelJS.Workbook()
@@ -51,37 +52,37 @@ export function crearPresupuestoImagenes(maximo = 150) {
   return { restantes: maximo }
 }
 
-// Inserta miniaturas en columnas consecutivas (0-based) de una fila (1-based).
-// Devuelve cuántas logró insertar.
-export async function insertarMiniaturas(libro, hoja, fila, colInicio, urls, presupuesto) {
-  let insertadas = 0
-  for (let i = 0; i < urls.length; i++) {
-    if (presupuesto.restantes <= 0) break
-    const info = await obtenerBufferImagen(urls[i])
-    if (!info) continue
-    presupuesto.restantes--
-    const imageId = libro.addImage({ buffer: info.buffer, extension: info.extension })
-    hoja.addImage(imageId, {
-      tl: { col: colInicio + i, row: fila - 1 + 0.06 },
-      ext: { width: 88, height: 54 },
-      editAs: 'oneCell',
-    })
-    insertadas++
+// Celda de adjunto: hipervínculo real y clickeable (no texto plano a copiar),
+// o "N/A" si no aplica. colIndex es 0-based (para que llame parejo con
+// insertarMiniatura, que sí lo necesita 0-based para exceljs).
+export function celdaAdjunto(hoja, fila, colIndex, url, etiqueta = 'Ver') {
+  const celda = hoja.getCell(fila, colIndex + 1)
+  if (!url) {
+    celda.value = 'N/A'
+    celda.alignment = { vertical: 'middle', horizontal: 'center' }
+    celda.font = { color: { argb: 'FF9CA3AF' } }
+    return
   }
-  if (insertadas > 0) {
-    hoja.getRow(fila).height = ALTO_FILA_CON_FOTOS
-  }
-  return insertadas
+  celda.value = { text: etiqueta, hyperlink: url }
+  celda.font = { color: { argb: COLOR_ENLACE }, underline: true }
+  celda.alignment = { vertical: 'middle' }
 }
 
-// Todas las URLs (fotos + video + documento) como texto plano, una por
-// línea, para que nada se pierda aunque no haya podido embeberse como
-// miniatura o el presupuesto de imágenes ya se haya agotado.
-export function celdaEnlaces(hoja, fila, col, enlaces) {
-  if (enlaces.length === 0) return
-  const celda = hoja.getCell(fila, col)
-  celda.value = enlaces.join('\n')
-  celda.alignment = { wrapText: true, vertical: 'top' }
+// Superpone una miniatura sobre una celda que ya tiene el hipervínculo de
+// respaldo (celdaAdjunto) — si la descarga falla (red, CORS del bucket,
+// etc.) el hipervínculo de texto queda visible tal cual, sin miniatura.
+export async function insertarMiniatura(libro, hoja, fila, colIndex, url, presupuesto) {
+  if (!url || presupuesto.restantes <= 0) return false
+  const info = await obtenerBufferImagen(url)
+  if (!info) return false
+  presupuesto.restantes--
+  const imageId = libro.addImage({ buffer: info.buffer, extension: info.extension })
+  hoja.addImage(imageId, {
+    tl: { col: colIndex, row: fila - 1 + 0.06 },
+    ext: { width: 88, height: 54 },
+    editAs: 'oneCell',
+  })
+  return true
 }
 
 export async function descargarLibro(libro, nombreArchivo) {

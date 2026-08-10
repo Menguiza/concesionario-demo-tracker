@@ -3,6 +3,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { db, storage } from '../../firebase/config'
 import { actualizarVehiculo } from '../vehiculos/vehiculosApi'
 import { marcarReservaCumplida } from '../reservas/reservasApi'
+import { fotosFaltantes } from '../../lib/fotosVehiculo'
 
 async function subirArchivo(vehiculoId, archivo, carpeta) {
   const nombre = `${Date.now()}-${archivo.name}`
@@ -11,8 +12,9 @@ async function subirArchivo(vehiculoId, archivo, carpeta) {
   return getDownloadURL(storageRef)
 }
 
-// fotos es obligatorio (al menos una), video y firma/documento son opcionales.
-// reservaId es opcional: solo viene cuando el registro nace de una reserva de
+// fotos es un objeto { frente, lateralIzq, lateralDer, trasero, kilometraje },
+// las 5 son obligatorias; video y firma/documento son opcionales. reservaId es
+// opcional: solo viene cuando el registro nace de una reserva de
 // comercial/directivo (no cuando anfitriona/admin lo hacen directo con un cliente).
 export async function registrarMovimiento({
   vehiculoId,
@@ -25,11 +27,16 @@ export async function registrarMovimiento({
   documentoEscaneado,
   reservaId,
 }) {
-  if (!fotos || fotos.length === 0) {
-    throw new Error('Se requiere al menos una foto para registrar el movimiento.')
+  const faltantes = fotosFaltantes(fotos)
+  if (faltantes.length > 0) {
+    throw new Error(`Faltan fotos obligatorias: ${faltantes.map((f) => f.label).join(', ')}.`)
   }
 
-  const fotosURLs = await Promise.all(fotos.map((f) => subirArchivo(vehiculoId, f, 'fotos')))
+  const fotosURLs = Object.fromEntries(
+    await Promise.all(
+      Object.entries(fotos).map(async ([lado, archivo]) => [lado, await subirArchivo(vehiculoId, archivo, `fotos/${lado}`)])
+    )
+  )
   const videoURL = video ? await subirArchivo(vehiculoId, video, 'video') : null
   const documentoURL = documentoEscaneado
     ? await subirArchivo(vehiculoId, documentoEscaneado, 'documentos')

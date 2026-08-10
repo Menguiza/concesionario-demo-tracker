@@ -6,12 +6,64 @@ import { listarClientesEnRango } from '../features/clientes/clientesApi'
 import { listarReservasEnRango } from '../features/reservas/reservasApi'
 import { parseFechaLocal, fechaLocalYYYYMMDD } from '../lib/fechas'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
+import { normalizarFotos } from '../lib/fotosVehiculo'
 import { INPUT } from '../lib/estilos'
-import { crearLibro, agregarHojaTabular, insertarMiniaturas, celdaEnlaces, crearPresupuestoImagenes, descargarLibro } from '../lib/excel'
+import {
+  crearLibro,
+  agregarHojaTabular,
+  insertarMiniatura,
+  celdaAdjunto,
+  crearPresupuestoImagenes,
+  descargarLibro,
+  ALTO_FILA_DATOS,
+} from '../lib/excel'
 import Tarjeta from '../components/Tarjeta'
 import Boton from '../components/Boton'
 import Alerta from '../components/Alerta'
 import { IconoReporte, IconoDescarga } from '../lib/iconos'
+
+const LABELS_LADO = { frente: 'Frente', lateralIzq: 'Lateral Izq', lateralDer: 'Lateral Der', trasero: 'Trasero', kilometraje: 'Kilometraje' }
+
+// Columnas de adjuntos compartidas entre el reporte de movimientos y el de
+// reservas (una reserva cumplida hereda las fotos de su movimiento vinculado).
+function columnasAdjuntos() {
+  return [
+    { header: 'Frente', key: 'frente', width: 13 },
+    { header: 'Lateral Izq', key: 'lateralIzq', width: 13 },
+    { header: 'Lateral Der', key: 'lateralDer', width: 13 },
+    { header: 'Trasero', key: 'trasero', width: 13 },
+    { header: 'Kilometraje', key: 'kilometraje', width: 13 },
+    { header: 'Documento', key: 'documento', width: 13 },
+    { header: 'Video', key: 'video', width: 13 },
+    { header: 'Otras fotos (registros anteriores)', key: 'otras', width: 24 },
+  ]
+}
+
+async function escribirAdjuntos(libro, hoja, fila, columnas, movimiento, presupuesto) {
+  const fotos = normalizarFotos(movimiento?.fotos)
+
+  for (const lado of ['frente', 'lateralIzq', 'lateralDer', 'trasero', 'kilometraje']) {
+    const col = columnas.findIndex((c) => c.key === lado)
+    const url = fotos[lado]
+    celdaAdjunto(hoja, fila, col, url, LABELS_LADO[lado])
+    if (url) await insertarMiniatura(libro, hoja, fila, col, url, presupuesto)
+  }
+
+  const colDocumento = columnas.findIndex((c) => c.key === 'documento')
+  celdaAdjunto(hoja, fila, colDocumento, movimiento?.documentoEscaneadoURL, 'Ver documento')
+  if (movimiento?.documentoEscaneadoURL) await insertarMiniatura(libro, hoja, fila, colDocumento, movimiento.documentoEscaneadoURL, presupuesto)
+
+  const colVideo = columnas.findIndex((c) => c.key === 'video')
+  celdaAdjunto(hoja, fila, colVideo, movimiento?.video, 'Ver video')
+
+  const colOtras = columnas.findIndex((c) => c.key === 'otras')
+  if (fotos.otras.length > 0) {
+    celdaAdjunto(hoja, fila, colOtras, fotos.otras[0], `Ver (${fotos.otras.length})`)
+    await insertarMiniatura(libro, hoja, fila, colOtras, fotos.otras[0], presupuesto)
+  } else {
+    celdaAdjunto(hoja, fila, colOtras, null)
+  }
+}
 
 const TIPOS_REPORTE = [
   {
@@ -55,17 +107,9 @@ async function construirReporteMovimientos(libro, { desde, hasta, vehiculoId, ve
     { header: 'Quién recibe', key: 'quienRecibe', width: 22 },
     { header: 'Quién entrega', key: 'quienEntrega', width: 22 },
     { header: 'Motivo', key: 'motivo', width: 24 },
-    { header: 'Foto 1', key: 'foto1', width: 14 },
-    { header: 'Foto 2', key: 'foto2', width: 14 },
-    { header: 'Foto 3', key: 'foto3', width: 14 },
-    { header: 'Documento', key: 'documento', width: 14 },
-    { header: 'Enlaces (todos los adjuntos)', key: 'enlaces', width: 42 },
+    ...columnasAdjuntos(),
   ]
   const hoja = agregarHojaTabular(libro, 'Movimientos', columnas)
-  const colFoto1 = columnas.findIndex((c) => c.key === 'foto1')
-  const colDocumento = columnas.findIndex((c) => c.key === 'documento')
-  const colEnlaces = columnas.findIndex((c) => c.key === 'enlaces') + 1
-
   const presupuesto = crearPresupuestoImagenes()
 
   for (const m of movimientos) {
@@ -75,18 +119,13 @@ async function construirReporteMovimientos(libro, { desde, hasta, vehiculoId, ve
       placa: vehiculo?.placa ?? '—',
       vehiculo: vehiculo?.marcaModelo ?? '',
       tipo: m.tipo === 'entrega' ? 'Entrega' : 'Recepción',
-      quienRecibe: m.quienRecibe?.nombre ?? '',
-      quienEntrega: m.quienEntrega?.nombre ?? '',
+      quienRecibe: m.quienRecibe?.nombre || 'N/A',
+      quienEntrega: m.quienEntrega?.nombre || 'N/A',
       motivo: m.motivo ?? '',
     }).number
+    hoja.getRow(fila).height = ALTO_FILA_DATOS
 
-    const fotos = m.fotos ?? []
-    await insertarMiniaturas(libro, hoja, fila, colFoto1, fotos.slice(0, 3), presupuesto)
-    if (m.documentoEscaneadoURL) {
-      await insertarMiniaturas(libro, hoja, fila, colDocumento, [m.documentoEscaneadoURL], presupuesto)
-    }
-    const enlaces = [...fotos, m.video, m.documentoEscaneadoURL].filter(Boolean)
-    celdaEnlaces(hoja, fila, colEnlaces, enlaces)
+    await escribirAdjuntos(libro, hoja, fila, columnas, m, presupuesto)
   }
 
   return movimientos.length
@@ -146,14 +185,9 @@ async function construirReporteReservas(libro, { desde, hasta, personaId, vehicu
     { header: 'Estado', key: 'estado', width: 12 },
     { header: 'Resultado', key: 'resultado', width: 12 },
     { header: 'Motivo', key: 'motivo', width: 22 },
-    { header: 'Foto 1', key: 'foto1', width: 14 },
-    { header: 'Foto 2', key: 'foto2', width: 14 },
-    { header: 'Enlaces (todos los adjuntos)', key: 'enlaces', width: 42 },
+    ...columnasAdjuntos(),
   ]
   const hoja = agregarHojaTabular(libro, 'Reservas', columnas)
-  const colFoto1 = columnas.findIndex((c) => c.key === 'foto1')
-  const colEnlaces = columnas.findIndex((c) => c.key === 'enlaces') + 1
-
   const presupuesto = crearPresupuestoImagenes()
 
   const ROTULO_ESTADO = { activa: 'Activa', cancelada: 'Cancelada' }
@@ -173,13 +207,9 @@ async function construirReporteReservas(libro, { desde, hasta, personaId, vehicu
       resultado: ROTULO_RESULTADO[r.resultado] ?? r.resultado,
       motivo: r.motivo ?? '',
     }).number
+    hoja.getRow(fila).height = ALTO_FILA_DATOS
 
-    if (movimiento) {
-      const fotos = movimiento.fotos ?? []
-      await insertarMiniaturas(libro, hoja, fila, colFoto1, fotos.slice(0, 2), presupuesto)
-      const enlaces = [...fotos, movimiento.video, movimiento.documentoEscaneadoURL].filter(Boolean)
-      celdaEnlaces(hoja, fila, colEnlaces, enlaces)
-    }
+    await escribirAdjuntos(libro, hoja, fila, columnas, movimiento, presupuesto)
   }
 
   return reservasFiltradas.length
@@ -335,8 +365,9 @@ export default function ReportesPage() {
       <div className="flex items-start gap-2.5 text-xs text-gray-400 px-1">
         <IconoReporte className="w-4 h-4 shrink-0 mt-0.5" />
         <p>
-          Las fotos y el documento firmado quedan incrustados como miniaturas dentro del Excel cuando es posible descargarlos; siempre queda
-          además el enlace original en la columna de enlaces, incluido el video (que no se puede incrustar en una celda).
+          Cada foto y el documento firmado tienen su propia columna (Frente, Lateral Izq, Lateral Der, Trasero, Kilometraje, Documento) con
+          la miniatura incrustada cuando se puede descargar, y siempre con un hipervínculo a la foto original — el video queda como
+          hipervínculo (no se puede incrustar en una celda). Lo que no aplica queda como "N/A".
         </p>
       </div>
     </div>

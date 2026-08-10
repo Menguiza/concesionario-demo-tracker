@@ -8,9 +8,11 @@ import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
 import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { parseFechaLocal } from '../lib/fechas'
+import { fotosFaltantes } from '../lib/fotosVehiculo'
 import { INPUT } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
 import CampoArchivo from '../components/CampoArchivo'
+import FotosVehiculo from '../components/FotosVehiculo'
 import FormularioRegistroPropio from '../components/FormularioRegistroPropio'
 import Tarjeta from '../components/Tarjeta'
 import Boton from '../components/Boton'
@@ -108,11 +110,15 @@ function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, onCerrar }
   const tipo = vehiculo.estado === 'prestado' ? 'recepcion' : 'entrega'
   const [nombreCliente, setNombreCliente] = useState('')
   const [motivo, setMotivo] = useState('')
-  const [fotos, setFotos] = useState([])
+  const [fotos, setFotos] = useState({})
   const [video, setVideo] = useState(null)
   const [documento, setDocumento] = useState(null)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
+
+  function handleFotoChange(lado, archivo) {
+    setFotos((prev) => ({ ...prev, [lado]: archivo }))
+  }
 
   const bloqueadoPorPicoYPlaca = tipo === 'entrega' && estaBloqueadoPorPicoYPlaca(vehiculo, picoYPlacaConfig)
 
@@ -120,8 +126,9 @@ function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, onCerrar }
     e.preventDefault()
     setError('')
 
-    if (fotos.length === 0) {
-      setError('Toma al menos una foto antes de guardar.')
+    const faltantes = fotosFaltantes(fotos)
+    if (faltantes.length > 0) {
+      setError(`Faltan fotos: ${faltantes.map((f) => f.label).join(', ')}.`)
       return
     }
     if (tipo === 'entrega' && !documento) {
@@ -171,16 +178,7 @@ function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, onCerrar }
       {tipo === 'entrega' && (
         <input placeholder="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} className={INPUT} />
       )}
-      <CampoArchivo
-        label="Fotos (obligatorio, varios ángulos + kilometraje)"
-        icono="camara"
-        accept="image/*"
-        capture="environment"
-        multiple
-        archivos={fotos}
-        textoVacio="Toca para tomar o elegir fotos"
-        onChange={(e) => setFotos(Array.from(e.target.files))}
-      />
+      <FotosVehiculo fotos={fotos} onChange={handleFotoChange} />
       <CampoArchivo
         label="Video (opcional)"
         icono="video"
