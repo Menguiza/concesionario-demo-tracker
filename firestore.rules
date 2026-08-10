@@ -23,7 +23,11 @@ service cloud.firestore {
 
     match /usuarios/{uid} {
       allow read: if autenticado();
-      allow write: if esAdmin();
+      allow create, delete: if esAdmin();
+      // Anfitriona solo puede tocar ultimaLlegada (marcar llegada); todo lo
+      // demás (rol, horario, activo, etc.) sigue siendo exclusivo de admin.
+      allow update: if esAdmin() ||
+        (esAnfitriona() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimaLlegada']));
     }
 
     match /equipos/{id} {

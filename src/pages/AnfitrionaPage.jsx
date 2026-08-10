@@ -1,24 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { suscribirEquipos, suscribirEstadoSemana, fijarEquipoActivo } from '../features/equipos/equiposApi'
-import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
+import { suscribirUsuarios, marcarLlegadaHoy } from '../features/usuarios/usuariosApi'
 import {
   suscribirColaEquipo,
   inicializarColaSemana,
   actualizarOrden,
   marcarOcupado,
   establecerClienteActual,
-  registrarLlegada,
 } from '../features/cola/colaApi'
 import { registrarCliente, marcarDescarte, contarClientesEfectivosEnRango } from '../features/clientes/clientesApi'
 import { construirOrdenInicial, elegirYRotar, asignarComercialEspecifico, pasarSinConsumirCola } from '../lib/queue'
 import { estaEnHorario } from '../lib/horario'
-import { rangoSemanaPasada } from '../lib/fechas'
+import { rangoSemanaPasada, fechaLocalYYYYMMDD } from '../lib/fechas'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
-
-function hoyYYYYMMDD() {
-  return new Date().toISOString().slice(0, 10)
-}
 
 export default function AnfitrionaPage() {
   const [equipos, setEquipos] = useState([])
@@ -91,15 +86,14 @@ export default function AnfitrionaPage() {
       return
     }
 
-    const llegadasCrudas = equipoId === equipoActivoId ? (cola?.llegadas ?? {}) : {}
-    const hoy = hoyYYYYMMDD()
+    const hoy = fechaLocalYYYYMMDD()
 
     try {
       const conteos = await Promise.all(
         miembros.map(async (m) => ({
           id: m.id,
           clientesEfectivosSemanaPasada: await contarClientesEfectivosEnRango(m.id, desde, hasta),
-          horaLlegadaHoy: llegadasCrudas[m.id]?.fecha === hoy ? llegadasCrudas[m.id].horaISO : null,
+          horaLlegadaHoy: m.ultimaLlegada?.fecha === hoy ? m.ultimaLlegada.horaISO : null,
         }))
       )
 
@@ -117,6 +111,12 @@ export default function AnfitrionaPage() {
       comercialesEquipo.filter((c) => c.activo !== false && estaEnHorario(c.horarioSemanal)).map((c) => c.id)
     )
   }
+
+  // A quién le tocaría el próximo cliente si se asigna "normal" ahora mismo
+  // (no aplica si el próximo cliente pide un comercial específico).
+  const proximoEnRecibir = cola?.orden
+    ? elegirYRotar(cola.orden, new Set(cola.ocupados ?? []), idsEnHorarioAhora()).elegido
+    : null
 
   async function ocuparConCliente(comercialId, clienteId) {
     const ocupadosActuales = cola.ocupados ?? []
@@ -207,7 +207,7 @@ export default function AnfitrionaPage() {
   }
 
   async function handleMarcarLlegada(comercialId) {
-    await registrarLlegada(equipoActivoId, comercialId, cola.llegadas ?? {})
+    await marcarLlegadaHoy(comercialId)
   }
 
   if (!equipoActivoId) {
@@ -281,8 +281,8 @@ export default function AnfitrionaPage() {
 
       <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-600 space-y-1">
         <p>
-          <strong>Llegada:</strong> márcala una sola vez, cuando el comercial llegue a trabajar hoy. Sirve para desempatar el orden si más
-          tarde reinicias la semana.
+          <strong>Siguiente:</strong> el comercial marcado en azul es quien va a recibir el próximo cliente si le das "Asignar" ahora
+          mismo (sin pedir uno específico).
         </p>
         <p>
           <strong>Ocupado / Disponible:</strong> se marca solo cuando le asignas un cliente. Para liberarlo vas a tener que decir si ese
@@ -296,12 +296,23 @@ export default function AnfitrionaPage() {
           const comercial = comercialesPorId[id]
           const ocupado = cola.ocupados?.includes(id)
           const enHorario = comercial ? estaEnHorario(comercial.horarioSemanal) : false
-          const llegada = cola.llegadas?.[id]?.fecha === hoyYYYYMMDD() ? cola.llegadas[id] : null
+          const llegada = comercial?.ultimaLlegada?.fecha === fechaLocalYYYYMMDD() ? comercial.ultimaLlegada : null
+          const esSiguiente = id === proximoEnRecibir
           return (
-            <li key={id} className="bg-white rounded-lg border border-gray-200 px-3 py-3 space-y-2">
-              <p className="text-sm font-medium text-gray-900">
-                {i + 1}. {comercial?.nombre ?? id}
-              </p>
+            <li
+              key={id}
+              className={`rounded-lg border px-3 py-3 space-y-2 ${
+                esSiguiente ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-300' : 'bg-white border-gray-200'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-gray-900">
+                  {i + 1}. {comercial?.nombre ?? id}
+                </p>
+                {esSiguiente && (
+                  <span className="text-xs rounded-full bg-blue-600 text-white px-2 py-0.5 shrink-0">Siguiente</span>
+                )}
+              </div>
               {!enHorario && <p className="text-xs text-gray-400">Fuera de su horario de hoy</p>}
 
               <div className="flex items-center justify-between gap-2">

@@ -3,6 +3,7 @@ import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
 import { collection, doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore'
 import { db, app } from '../../firebase/config'
 import { agregarComercialAEquipo } from '../equipos/equiposApi'
+import { fechaLocalYYYYMMDD } from '../../lib/fechas'
 
 export function suscribirUsuarios(callback) {
   return onSnapshot(collection(db, 'usuarios'), (snap) => {
@@ -38,4 +39,14 @@ export async function crearUsuarioStaff({ email, password, nombre, rol, equipoId
 
 export function actualizarUsuario(uid, cambios) {
   return updateDoc(doc(db, 'usuarios', uid), cambios)
+}
+
+// La llegada es un dato del comercial (¿llegó hoy a trabajar?), no de un
+// equipo — así tiene sentido marcarla desde Cola o desde Comerciales, sin
+// importar cuál equipo esté activo en ese momento.
+export function marcarLlegadaHoy(uid) {
+  const ahora = new Date()
+  return updateDoc(doc(db, 'usuarios', uid), {
+    ultimaLlegada: { fecha: fechaLocalYYYYMMDD(ahora), horaISO: ahora.toISOString() },
+  })
 }

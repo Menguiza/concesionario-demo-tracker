@@ -11,7 +11,6 @@ export function inicializarColaSemana(equipoId, orden) {
   return setDoc(doc(db, 'colaEquipo', equipoId), {
     orden,
     ocupados: [],
-    llegadas: {},
     clienteActual: {},
   })
 }
@@ -38,16 +37,4 @@ export function establecerClienteActual(equipoId, comercialId, clienteId, client
     delete nuevo[comercialId]
   }
   return updateDoc(doc(db, 'colaEquipo', equipoId), { clienteActual: nuevo })
-}
-
-// Se guarda con fecha (no solo hora) para poder distinguir "llegó hoy" de
-// una marca de un día anterior que quedó guardada de la semana en curso.
-export function registrarLlegada(equipoId, comercialId, llegadasActuales) {
-  const ahora = new Date()
-  return updateDoc(doc(db, 'colaEquipo', equipoId), {
-    llegadas: {
-      ...llegadasActuales,
-      [comercialId]: { fecha: ahora.toISOString().slice(0, 10), horaISO: ahora.toISOString() },
-    },
-  })
 }

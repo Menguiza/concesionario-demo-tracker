@@ -6,6 +6,13 @@ export function parseFechaLocal(yyyyMmDd) {
   return new Date(anio, mes - 1, dia)
 }
 
+// Igual que arriba pero al revés: arma "YYYY-MM-DD" a partir de los
+// componentes locales de la fecha, nunca uses fecha.toISOString() para esto
+// porque convierte a UTC y corre el día cerca del final de la tarde/noche.
+export function fechaLocalYYYYMMDD(fecha = new Date()) {
+  return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
+}
+
 export function rangoSemanaPasada(ahora = new Date()) {
   const diffAlLunes = (ahora.getDay() + 6) % 7
   const lunesEstaSemana = new Date(ahora)
