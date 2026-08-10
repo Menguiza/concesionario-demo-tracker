@@ -2,14 +2,24 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { suscribirVehiculos, crearVehiculo } from '../features/vehiculos/vehiculosApi'
 import { registrarMovimiento } from '../features/movimientos/movimientosApi'
+import { crearReserva, suscribirReservasDeUsuario } from '../features/reservas/reservasApi'
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
+import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
 import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { parseFechaLocal } from '../lib/fechas'
 import { useAuth } from '../context/AuthContext'
 import CampoArchivo from '../components/CampoArchivo'
+import FormularioRegistroPropio from '../components/FormularioRegistroPropio'
 
 const PATRON_PLACA = /^[A-Z]{3}[0-9]{3}$/
+const ROLES_GESTION_AMPLIA = ['admin', 'anfitriona']
+const DURACIONES_ASIGNACION = [
+  { horas: 1, label: '1 hora' },
+  { horas: 2, label: '2 horas' },
+  { horas: 4, label: '4 horas' },
+  { horas: 8, label: 'Todo el día (8 horas)' },
+]
 
 function EstadoBadge({ vehiculo, picoYPlacaConfig }) {
   const bloqueado = estaBloqueadoPorPicoYPlaca(vehiculo, picoYPlacaConfig)
@@ -82,11 +92,14 @@ function ConsultaPicoYPlacaRapida({ vehiculo, picoYPlacaConfig }) {
   )
 }
 
-function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
+// Formulario para admin/anfitriona: solo trata con clientes (a comercial o
+// directivo se les asigna con FormularioAsignacionInstantanea, que los deja
+// auto-registrarse). Para recepción no pide nada de "quién entrega" porque ya
+// se sabe por vehiculo.quienTiene.
+function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, onCerrar }) {
   const { perfil } = useAuth()
   const tipo = vehiculo.estado === 'prestado' ? 'recepcion' : 'entrega'
-  const [quienNombre, setQuienNombre] = useState('')
-  const [quienTipo, setQuienTipo] = useState('comercial')
+  const [nombreCliente, setNombreCliente] = useState('')
   const [motivo, setMotivo] = useState('')
   const [fotos, setFotos] = useState([])
   const [video, setVideo] = useState(null)
@@ -104,12 +117,10 @@ function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
       setError('Toma al menos una foto antes de guardar.')
       return
     }
-
-    if (quienTipo === 'cliente' && !documento) {
-      setError('Cuando es un cliente, el documento firmado escaneado es obligatorio.')
+    if (tipo === 'entrega' && !documento) {
+      setError('El documento firmado escaneado es obligatorio.')
       return
     }
-
     if (bloqueadoPorPicoYPlaca) {
       const continuar = window.confirm(
         `${vehiculo.placa} tiene pico y placa hoy. Solo continúa si tienes autorización explícita para usarlo de todas formas. ¿Confirmas que sí?`
@@ -119,15 +130,17 @@ function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
 
     setEnviando(true)
     try {
+      const anfitriona = { tipo: 'anfitriona', nombre: perfil?.nombre ?? '', uid: null }
+      const cliente = { tipo: 'cliente', nombre: nombreCliente, uid: null }
       await registrarMovimiento({
         vehiculoId: vehiculo.id,
         tipo,
-        quienRecibe: tipo === 'entrega' ? { tipo: quienTipo, nombre: quienNombre } : { tipo: 'anfitriona', nombre: perfil?.nombre },
-        quienEntrega: tipo === 'entrega' ? { tipo: 'anfitriona', nombre: perfil?.nombre } : { tipo: quienTipo, nombre: quienNombre },
-        motivo,
+        quienRecibe: tipo === 'entrega' ? cliente : anfitriona,
+        quienEntrega: tipo === 'entrega' ? anfitriona : (vehiculo.quienTiene ?? cliente),
+        motivo: motivo.trim() || null,
         fotos,
         video,
-        documentoEscaneado: documento,
+        documentoEscaneado: tipo === 'entrega' ? documento : null,
       })
       onCerrar()
     } catch (err) {
@@ -140,34 +153,30 @@ function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
   return (
     <form onSubmit={handleSubmit} className="mt-2 space-y-3 bg-gray-50 rounded-lg p-3">
       <p className="text-sm font-medium text-gray-900">
-        Vas a registrar: {tipo === 'entrega' ? 'Entrega del vehículo' : 'Recepción del vehículo'}
+        {tipo === 'entrega' ? 'Vas a registrar: Entrega a cliente' : `Vas a registrar: Devolución${vehiculo.quienTiene ? ` de ${vehiculo.quienTiene.nombre}` : ''}`}
       </p>
       {bloqueadoPorPicoYPlaca && (
         <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">
           Este vehículo tiene pico y placa hoy. Al guardar te vamos a pedir confirmación de que tienes autorización.
         </p>
       )}
-      <div className="flex gap-2">
-        <select value={quienTipo} onChange={(e) => setQuienTipo(e.target.value)} className="rounded-lg border border-gray-300 px-2 py-2 text-sm">
-          <option value="comercial">Comercial</option>
-          <option value="cliente">Cliente</option>
-          <option value="directivo">Directivo</option>
-        </select>
+      {tipo === 'entrega' && (
         <input
           required
-          placeholder="Nombre"
-          value={quienNombre}
-          onChange={(e) => setQuienNombre(e.target.value)}
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          placeholder="Nombre del cliente"
+          value={nombreCliente}
+          onChange={(e) => setNombreCliente(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
         />
-      </div>
-      <input
-        required
-        placeholder="Motivo (test drive, demora en entrega, autorización directivo…)"
-        value={motivo}
-        onChange={(e) => setMotivo(e.target.value)}
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-      />
+      )}
+      {tipo === 'entrega' && (
+        <input
+          placeholder="Motivo (opcional)"
+          value={motivo}
+          onChange={(e) => setMotivo(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        />
+      )}
       <CampoArchivo
         label="Fotos (obligatorio, varios ángulos + kilometraje)"
         icono="camara"
@@ -187,9 +196,9 @@ function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
         textoVacio="Toca para grabar o elegir un video"
         onChange={(e) => setVideo(e.target.files[0] ?? null)}
       />
-      {quienTipo === 'cliente' && (
+      {tipo === 'entrega' && (
         <CampoArchivo
-          label="Documento firmado escaneado (obligatorio con clientes)"
+          label="Documento firmado escaneado (obligatorio)"
           icono="documento"
           accept="image/*,application/pdf"
           archivos={documento ? [documento] : []}
@@ -210,11 +219,91 @@ function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
   )
 }
 
+// Crea una reserva que arranca ya — dispara el bloqueo de registro obligatorio
+// en la cuenta del comercial/directivo elegido. Anfitriona/admin no suben fotos.
+function FormularioAsignacionInstantanea({ vehiculo, personas, onCerrar }) {
+  const [personaId, setPersonaId] = useState('')
+  const [duracionHoras, setDuracionHoras] = useState(1)
+  const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    const persona = personas.find((p) => p.id === personaId)
+    if (!persona) return
+
+    setEnviando(true)
+    try {
+      const fechaInicio = new Date()
+      const fechaFin = new Date(fechaInicio)
+      fechaFin.setHours(fechaFin.getHours() + duracionHoras)
+      await crearReserva({
+        vehiculoId: vehiculo.id,
+        fechaInicio,
+        fechaFin,
+        solicitadoPor: { tipo: persona.rol, nombre: persona.nombre, uid: persona.id },
+        motivo: null,
+      })
+      onCerrar()
+    } catch (err) {
+      setError(mensajeErrorAmigable(err))
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="mt-2 space-y-3 bg-gray-50 rounded-lg p-3">
+      <p className="text-sm font-medium text-gray-900">Asignar {vehiculo.placa} ahora</p>
+      <select
+        required
+        value={personaId}
+        onChange={(e) => setPersonaId(e.target.value)}
+        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+      >
+        <option value="">Selecciona comercial o directivo</option>
+        {personas.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.nombre} ({p.rol === 'comercial' ? 'Comercial' : 'Directivo'})
+          </option>
+        ))}
+      </select>
+      <select
+        value={duracionHoras}
+        onChange={(e) => setDuracionHoras(Number(e.target.value))}
+        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+      >
+        {DURACIONES_ASIGNACION.map((d) => (
+          <option key={d.horas} value={d.horas}>
+            {d.label}
+          </option>
+        ))}
+      </select>
+      <p className="text-xs text-gray-400">
+        A esa persona le va a aparecer el registro obligatorio de entrega apenas entre a la app (o ya, si está adentro).
+      </p>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="flex gap-2">
+        <button type="submit" disabled={enviando} className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm disabled:opacity-50">
+          {enviando ? 'Asignando…' : 'Asignar'}
+        </button>
+        <button type="button" onClick={onCerrar} className="text-sm text-gray-500">
+          Cancelar
+        </button>
+      </div>
+    </form>
+  )
+}
+
 export default function VehiculosPage() {
-  const { rol } = useAuth()
+  const { rol, firebaseUser } = useAuth()
+  const gestionAmplia = ROLES_GESTION_AMPLIA.includes(rol)
   const [vehiculos, setVehiculos] = useState([])
   const [picoYPlacaConfig, setPicoYPlacaConfig] = useState(null)
-  const [expandido, setExpandido] = useState(null)
+  const [personasAsignables, setPersonasAsignables] = useState([])
+  const [misReservas, setMisReservas] = useState([])
+  const [accionAbierta, setAccionAbierta] = useState(null)
   const [nuevaPlaca, setNuevaPlaca] = useState('')
   const [nuevoModelo, setNuevoModelo] = useState('')
   const [nuevoElectrico, setNuevoElectrico] = useState(false)
@@ -222,6 +311,18 @@ export default function VehiculosPage() {
 
   useEffect(() => suscribirVehiculos(setVehiculos), [])
   useEffect(() => suscribirPicoYPlacaConfig(setPicoYPlacaConfig), [])
+
+  useEffect(() => {
+    if (!gestionAmplia) return
+    return suscribirUsuarios((todos) =>
+      setPersonasAsignables(todos.filter((u) => (u.rol === 'comercial' || u.rol === 'directivo') && u.activo !== false))
+    )
+  }, [gestionAmplia])
+
+  useEffect(() => {
+    if (gestionAmplia || !firebaseUser) return
+    return suscribirReservasDeUsuario(firebaseUser.uid, setMisReservas)
+  }, [gestionAmplia, firebaseUser])
 
   function handlePlacaChange(valor) {
     const limpio = valor.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
@@ -251,36 +352,103 @@ export default function VehiculosPage() {
     }
   }
 
+  // Para comercial/directivo: ¿qué puede hacer con este vehículo específico?
+  function relacionPropia(vehiculo) {
+    if (vehiculo.quienTiene?.uid === firebaseUser?.uid) return { tipo: 'devolucion' }
+    const reserva = misReservas.find((r) => r.vehiculoId === vehiculo.id && r.resultado === 'pendiente')
+    if (reserva && new Date() < reserva.fechaInicio.toDate() && vehiculo.estado === 'disponible') {
+      return { tipo: 'anticipada', reserva }
+    }
+    return { tipo: 'ninguna' }
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-lg font-semibold text-gray-900">Vehículos</h1>
 
       <ul className="space-y-3">
-        {vehiculos.map((v) => (
-          <li key={v.id} className="bg-white rounded-lg border border-gray-200 p-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-900">{v.placa}</p>
-                <p className="text-xs text-gray-500">
-                  {v.marcaModelo} {v.esElectricoHibrido && '· eléctrico/híbrido'}
-                </p>
+        {vehiculos.map((v) => {
+          const relacion = gestionAmplia ? null : relacionPropia(v)
+          return (
+            <li key={v.id} className="bg-white rounded-lg border border-gray-200 p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{v.placa}</p>
+                  <p className="text-xs text-gray-500">
+                    {v.marcaModelo} {v.esElectricoHibrido && '· eléctrico/híbrido'}
+                  </p>
+                  {v.estado === 'prestado' && v.quienTiene && (
+                    <p className="text-xs text-gray-500">Lo tiene: {v.quienTiene.nombre}</p>
+                  )}
+                </div>
+                <EstadoBadge vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} />
               </div>
-              <EstadoBadge vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} />
-            </div>
-            <ConsultaPicoYPlacaRapida vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} />
-            <div className="mt-2 flex gap-3 text-sm">
-              <button onClick={() => setExpandido(expandido === v.id ? null : v.id)} className="text-gray-900 underline">
-                Registrar movimiento
-              </button>
-              <Link to="/reservas" className="text-gray-500 underline">
-                Ver / crear reservas
-              </Link>
-            </div>
-            {expandido === v.id && (
-              <FormularioMovimiento vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} onCerrar={() => setExpandido(null)} />
-            )}
-          </li>
-        ))}
+              <ConsultaPicoYPlacaRapida vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} />
+
+              <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                {gestionAmplia && (
+                  <>
+                    <button
+                      onClick={() => setAccionAbierta(accionAbierta === `${v.id}-mov` ? null : `${v.id}-mov`)}
+                      className="text-gray-900 underline"
+                    >
+                      {v.estado === 'prestado' ? 'Registrar devolución' : 'Prestar a cliente'}
+                    </button>
+                    {v.estado === 'disponible' && (
+                      <button
+                        onClick={() => setAccionAbierta(accionAbierta === `${v.id}-asig` ? null : `${v.id}-asig`)}
+                        className="text-gray-500 underline"
+                      >
+                        Asignar a comercial/directivo
+                      </button>
+                    )}
+                  </>
+                )}
+                {!gestionAmplia && relacion.tipo === 'devolucion' && (
+                  <button
+                    onClick={() => setAccionAbierta(accionAbierta === `${v.id}-mov` ? null : `${v.id}-mov`)}
+                    className="text-gray-900 underline"
+                  >
+                    Registrar devolución
+                  </button>
+                )}
+                {!gestionAmplia && relacion.tipo === 'anticipada' && (
+                  <button
+                    onClick={() => setAccionAbierta(accionAbierta === `${v.id}-mov` ? null : `${v.id}-mov`)}
+                    className="text-gray-900 underline"
+                  >
+                    Registrar entrega anticipada
+                  </button>
+                )}
+                <Link to="/reservas" className="text-gray-500 underline">
+                  Ver / crear reservas
+                </Link>
+              </div>
+
+              {gestionAmplia && accionAbierta === `${v.id}-mov` && (
+                <FormularioMovimientoAnfitriona
+                  vehiculo={v}
+                  picoYPlacaConfig={picoYPlacaConfig}
+                  onCerrar={() => setAccionAbierta(null)}
+                />
+              )}
+              {gestionAmplia && accionAbierta === `${v.id}-asig` && (
+                <FormularioAsignacionInstantanea vehiculo={v} personas={personasAsignables} onCerrar={() => setAccionAbierta(null)} />
+              )}
+              {!gestionAmplia && accionAbierta === `${v.id}-mov` && relacion.tipo !== 'ninguna' && (
+                <div className="mt-2 bg-gray-50 rounded-lg p-3">
+                  <FormularioRegistroPropio
+                    vehiculo={v}
+                    tipo={relacion.tipo === 'devolucion' ? 'recepcion' : 'entrega'}
+                    reserva={relacion.reserva}
+                    onListo={() => setAccionAbierta(null)}
+                    onCancelar={() => setAccionAbierta(null)}
+                  />
+                </div>
+              )}
+            </li>
+          )
+        })}
       </ul>
 
       {rol === 'admin' && (

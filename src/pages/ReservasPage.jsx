@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { suscribirVehiculos } from '../features/vehiculos/vehiculosApi'
-import { suscribirReservas, crearReserva, cancelarReserva, verificarDisponibilidad } from '../features/reservas/reservasApi'
+import {
+  suscribirReservas,
+  crearReserva,
+  cancelarReserva,
+  verificarDisponibilidad,
+  barrerReservasVencidas,
+} from '../features/reservas/reservasApi'
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
 import { diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
@@ -150,6 +156,15 @@ export default function ReservasPage() {
   useEffect(() => suscribirVehiculos(setVehiculos), [])
   useEffect(() => suscribirReservas(setReservas), [])
   useEffect(() => suscribirPicoYPlacaConfig(setPicoYPlacaConfig), [])
+
+  // Barrido perezoso: si alguien con permiso para gestionar reservas abre esta
+  // pantalla, aprovechamos para marcar como incumplidas las que ya vencieron
+  // sin que nadie registrara el movimiento correspondiente.
+  useEffect(() => {
+    if (!puedeGestionar || reservas.length === 0) return
+    barrerReservasVencidas(reservas)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [puedeGestionar, reservas.length])
   useEffect(() => {
     return suscribirUsuarios((todos) => {
       setComerciales(todos.filter((u) => u.rol === 'comercial'))
@@ -167,16 +182,17 @@ export default function ReservasPage() {
     setQuienNombreLibre('')
   }
 
-  function nombreQuienReserva() {
-    if (quienTipo === 'cliente') return quienNombreLibre.trim()
-    if (quienSeleccion === 'otro') return quienNombreLibre.trim()
-    return listaPersonas.find((p) => p.id === quienSeleccion)?.nombre ?? ''
+  function personaSeleccionada() {
+    if (quienTipo === 'cliente') return { nombre: quienNombreLibre.trim(), uid: null }
+    if (quienSeleccion === 'otro') return { nombre: quienNombreLibre.trim(), uid: null }
+    const persona = listaPersonas.find((p) => p.id === quienSeleccion)
+    return persona ? { nombre: persona.nombre, uid: persona.id } : { nombre: '', uid: null }
   }
 
   async function handleCrear(e) {
     e.preventDefault()
     setMensaje('')
-    const quienNombre = nombreQuienReserva()
+    const { nombre: quienNombre, uid: quienUid } = personaSeleccionada()
     if (!vehiculoId || !inicio || !fin || !quienNombre) return
 
     const fechaInicio = new Date(inicio)
@@ -211,7 +227,7 @@ export default function ReservasPage() {
         vehiculoId,
         fechaInicio,
         fechaFin,
-        solicitadoPor: { tipo: quienTipo, nombre: quienNombre },
+        solicitadoPor: { tipo: quienTipo, nombre: quienNombre, uid: quienUid },
         motivo: motivo.trim() || null,
       })
       setMensaje('Reserva creada.')
@@ -374,10 +390,17 @@ export default function ReservasPage() {
                 <li key={r.id} className="bg-white rounded-lg border border-gray-200 p-3 space-y-1">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-gray-900">{vehiculo?.placa ?? 'Vehículo eliminado'}</p>
-                    {r.estado === 'cancelada' ? (
+                    {r.estado === 'cancelada' && (
                       <span className="text-xs rounded-full bg-gray-200 text-gray-600 px-3 py-1">Cancelada</span>
-                    ) : (
+                    )}
+                    {r.estado === 'activa' && r.resultado === 'pendiente' && (
                       <span className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-3 py-1">Activa</span>
+                    )}
+                    {r.estado === 'activa' && r.resultado === 'cumplida' && (
+                      <span className="text-xs rounded-full bg-blue-100 text-blue-800 px-3 py-1">Cumplida</span>
+                    )}
+                    {r.estado === 'activa' && r.resultado === 'incumplida' && (
+                      <span className="text-xs rounded-full bg-red-100 text-red-800 px-3 py-1">Incumplida</span>
                     )}
                   </div>
                   <p className="text-xs text-gray-500">
@@ -387,7 +410,7 @@ export default function ReservasPage() {
                     {r.solicitadoPor?.tipo}: {r.solicitadoPor?.nombre}
                     {r.motivo && ` · ${r.motivo}`}
                   </p>
-                  {puedeGestionar && r.estado === 'activa' && (
+                  {puedeGestionar && r.estado === 'activa' && r.resultado === 'pendiente' && (
                     <button onClick={() => handleCancelar(r.id)} className="text-xs text-red-700 underline">
                       Cancelar reserva
                     </button>

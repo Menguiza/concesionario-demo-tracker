@@ -59,6 +59,11 @@ service cloud.firestore {
     match /vehiculos/{id} {
       allow read: if autenticado();
       allow write: if esAdmin() || esAnfitriona();
+      // Comercial/directivo pueden registrar su propio movimiento (entrega o
+      // devolución de un vehículo que reservaron), pero solo tocando estos
+      // campos — no pueden crear vehículos ni editar placa/marca/etc.
+      allow update: if (esComercial() || esDirectivo()) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'movimientoActualId', 'quienTiene']);
     }
 
     match /movimientos/{id} {
@@ -70,6 +75,10 @@ service cloud.firestore {
     match /reservas/{id} {
       allow read: if autenticado();
       allow write: if esAdmin() || esAnfitriona() || esDirectivo();
+      // Comercial puede cerrar (marcar cumplida) únicamente su propia
+      // reserva, y solo esos dos campos — no puede crear ni cancelar reservas.
+      allow update: if esComercial() && resource.data.solicitadoPor.uid == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['resultado', 'movimientoId']);
     }
 
     match /picoYPlacaConfig/{id} {

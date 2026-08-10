@@ -14,6 +14,7 @@ export function crearVehiculo({ placa, marcaModelo, esElectricoHibrido }) {
     esElectricoHibrido: !!esElectricoHibrido,
     estado: 'disponible',
     movimientoActualId: null,
+    quienTiene: null,
   })
 }
 
