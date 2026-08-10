@@ -7,15 +7,18 @@ const LINKS_POR_ROL = {
   admin: [
     { to: '/admin', label: 'Administración' },
     { to: '/vehiculos', label: 'Vehículos' },
+    { to: '/reservas', label: 'Reservas' },
     { to: '/anfitriona', label: 'Cola' },
   ],
   anfitriona: [
     { to: '/anfitriona', label: 'Cola' },
     { to: '/vehiculos', label: 'Vehículos' },
+    { to: '/reservas', label: 'Reservas' },
   ],
   comercial: [
     { to: '/comercial', label: 'Mis clientes' },
     { to: '/vehiculos', label: 'Vehículos' },
+    { to: '/reservas', label: 'Reservas' },
   ],
 }
 

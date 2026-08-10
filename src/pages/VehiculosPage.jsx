@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { suscribirVehiculos, crearVehiculo } from '../features/vehiculos/vehiculosApi'
 import { registrarMovimiento } from '../features/movimientos/movimientosApi'
-import { verificarDisponibilidad, crearReserva } from '../features/reservas/reservasApi'
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
-import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
+import { estaBloqueadoPorPicoYPlaca } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
-import { parseFechaLocal } from '../lib/fechas'
 import { useAuth } from '../context/AuthContext'
 
 const PATRON_PLACA = /^[A-Z]{3}[0-9]{3}$/
@@ -126,66 +125,11 @@ function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
   )
 }
 
-function ChequeoDisponibilidad({ vehiculo, picoYPlacaConfig }) {
-  const [desde, setDesde] = useState('')
-  const [hasta, setHasta] = useState('')
-  const [resultado, setResultado] = useState(null)
-  const [diasPicoYPlaca, setDiasPicoYPlaca] = useState([])
-
-  async function handleChequear() {
-    if (!desde || !hasta) return
-    const fechaInicio = parseFechaLocal(desde)
-    const fechaFin = parseFechaLocal(hasta)
-    const r = await verificarDisponibilidad(vehiculo.id, fechaInicio, fechaFin)
-    setResultado(r)
-    setDiasPicoYPlaca(diasBloqueadosPorPicoYPlacaEnRango(vehiculo, picoYPlacaConfig, fechaInicio, fechaFin))
-  }
-
-  async function handleReservar() {
-    await crearReserva({
-      vehiculoId: vehiculo.id,
-      fechaInicio: parseFechaLocal(desde),
-      fechaFin: parseFechaLocal(hasta),
-      solicitadoPor: { tipo: 'anfitriona' },
-      motivo: 'Reserva manual',
-    })
-    setResultado(null)
-    setDiasPicoYPlaca([])
-  }
-
-  const libreDeTodo = resultado?.disponible && diasPicoYPlaca.length === 0
-
-  return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-      <input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className="rounded-lg border border-gray-300 px-2 py-1" />
-      <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="rounded-lg border border-gray-300 px-2 py-1" />
-      <button type="button" onClick={handleChequear} className="text-gray-500 underline">
-        Consultar disponibilidad
-      </button>
-      {resultado && !resultado.disponible && (
-        <span className="text-red-700">Ocupado ({resultado.conflictos.length} reserva(s) que se cruzan)</span>
-      )}
-      {resultado?.disponible && diasPicoYPlaca.length > 0 && (
-        <span className="text-red-700">
-          Pico y placa el {diasPicoYPlaca.map((d) => d.toLocaleDateString('es-CO')).join(', ')}
-        </span>
-      )}
-      {libreDeTodo && <span className="text-emerald-700">Disponible en ese rango</span>}
-      {libreDeTodo && (
-        <button type="button" onClick={handleReservar} className="text-gray-900 underline">
-          Reservar
-        </button>
-      )}
-    </div>
-  )
-}
-
 export default function VehiculosPage() {
   const { rol } = useAuth()
   const [vehiculos, setVehiculos] = useState([])
   const [picoYPlacaConfig, setPicoYPlacaConfig] = useState(null)
   const [expandido, setExpandido] = useState(null)
-  const [mostrandoDisponibilidad, setMostrandoDisponibilidad] = useState(null)
   const [nuevaPlaca, setNuevaPlaca] = useState('')
   const [nuevoModelo, setNuevoModelo] = useState('')
   const [nuevoElectrico, setNuevoElectrico] = useState(false)
@@ -242,17 +186,13 @@ export default function VehiculosPage() {
               <button onClick={() => setExpandido(expandido === v.id ? null : v.id)} className="text-gray-900 underline">
                 Registrar movimiento
               </button>
-              <button
-                onClick={() => setMostrandoDisponibilidad(mostrandoDisponibilidad === v.id ? null : v.id)}
-                className="text-gray-500 underline"
-              >
-                Disponibilidad a futuro
-              </button>
+              <Link to="/reservas" className="text-gray-500 underline">
+                Ver / crear reservas
+              </Link>
             </div>
             {expandido === v.id && (
               <FormularioMovimiento vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} onCerrar={() => setExpandido(null)} />
             )}
-            {mostrandoDisponibilidad === v.id && <ChequeoDisponibilidad vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} />}
           </li>
         ))}
       </ul>

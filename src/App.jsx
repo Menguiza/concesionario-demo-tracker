@@ -7,6 +7,7 @@ import AnfitrionaPage from './pages/AnfitrionaPage'
 import VehiculosPage from './pages/VehiculosPage'
 import ComercialPage from './pages/ComercialPage'
 import AdminPage from './pages/AdminPage'
+import ReservasPage from './pages/ReservasPage'
 
 function InicioRedirect() {
   const { rol } = useAuth()
@@ -38,6 +39,7 @@ export default function App() {
               }
             />
             <Route path="/vehiculos" element={<VehiculosPage />} />
+            <Route path="/reservas" element={<ReservasPage />} />
             <Route
               path="/comercial"
               element={
