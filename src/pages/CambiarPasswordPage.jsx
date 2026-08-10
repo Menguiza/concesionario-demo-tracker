@@ -44,7 +44,7 @@ export default function CambiarPasswordPage() {
       <h1 className="text-lg font-semibold text-gray-900">Cambiar contraseña</h1>
       <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-4 space-y-3 max-w-sm">
         <div>
-          <label className="block text-sm text-gray-600 mb-1">Contraseña actual (la temporal que te dieron)</label>
+          <label className="block text-sm text-gray-600 mb-1">Contraseña actual</label>
           <input
             type="password"
             required
