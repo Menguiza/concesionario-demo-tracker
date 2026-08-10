@@ -122,3 +122,21 @@ export function IconoCerrar(props) {
     </svg>
   )
 }
+
+export function IconoReporte(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M5 20V11M12 20V4M19 20v-6" />
+      <path d="M3 20h18" />
+    </svg>
+  )
+}
+
+export function IconoDescarga(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 4v11m0 0 4-4m-4 4-4-4" />
+      <path d="M5 19h14" />
+    </svg>
+  )
+}

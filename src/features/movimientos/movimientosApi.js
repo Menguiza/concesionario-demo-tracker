@@ -73,3 +73,16 @@ export async function listarMovimientosPorVehiculoEnRango(vehiculoId, desde, has
   const snap = await getDocs(q)
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
+
+// Todos los movimientos (de cualquier vehículo) en el rango — para reportes.
+// Un solo filtro por rango; el filtrado por vehículo o persona específica se
+// hace en el cliente para no depender de un índice compuesto.
+export async function listarMovimientosEnRango(desde, hasta) {
+  const q = query(
+    collection(db, 'movimientos'),
+    where('fecha', '>=', Timestamp.fromDate(desde)),
+    where('fecha', '<=', Timestamp.fromDate(hasta))
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}

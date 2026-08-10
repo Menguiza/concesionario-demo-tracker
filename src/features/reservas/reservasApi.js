@@ -76,6 +76,20 @@ export function suscribirReservasDeUsuario(uid, callback) {
   })
 }
 
+// Todas las reservas cuyo inicio cae en el rango — un solo filtro por rango
+// (sin combinarlo con igualdades) para no depender de un índice compuesto.
+// El filtrado por vehículo/persona específica se hace en el cliente.
+export async function listarReservasEnRango(desde, hasta) {
+  const q = query(
+    collection(db, 'reservas'),
+    where('fechaInicio', '>=', Timestamp.fromDate(desde)),
+    where('fechaInicio', '<=', Timestamp.fromDate(hasta)),
+    orderBy('fechaInicio', 'asc')
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
 // Barrido perezoso: reservas cuyo horario ya pasó y nadie registró el
 // movimiento correspondiente quedan marcadas como incumplidas, para poder
 // saber después a quién se le adjudica la falta.

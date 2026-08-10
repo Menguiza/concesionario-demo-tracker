@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
@@ -11,6 +12,12 @@ import AdminPage from './pages/AdminPage'
 import ReservasPage from './pages/ReservasPage'
 import ComercialesPage from './pages/ComercialesPage'
 import CambiarPasswordPage from './pages/CambiarPasswordPage'
+
+// La librería de generación de Excel es pesada (~900kB) y solo la usa
+// admin/anfitriona/directivo al entrar a Reportes — se separa en su propio
+// chunk para no cargarla en el resto de la app (incluido el celular de
+// cualquier comercial, que nunca visita esta pantalla).
+const ReportesPage = lazy(() => import('./pages/ReportesPage'))
 
 export default function App() {
   return (
@@ -58,6 +65,16 @@ export default function App() {
               element={
                 <ProtectedRoute roles={['admin']}>
                   <AdminPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reportes"
+              element={
+                <ProtectedRoute roles={['admin', 'anfitriona', 'directivo']}>
+                  <Suspense fallback={<div className="p-6 text-center text-gray-500 text-sm">Cargando…</div>}>
+                    <ReportesPage />
+                  </Suspense>
                 </ProtectedRoute>
               }
             />

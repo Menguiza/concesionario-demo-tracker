@@ -1,0 +1,344 @@
+import { useEffect, useMemo, useState } from 'react'
+import { suscribirVehiculos } from '../features/vehiculos/vehiculosApi'
+import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
+import { listarMovimientosEnRango } from '../features/movimientos/movimientosApi'
+import { listarClientesEnRango } from '../features/clientes/clientesApi'
+import { listarReservasEnRango } from '../features/reservas/reservasApi'
+import { parseFechaLocal, fechaLocalYYYYMMDD } from '../lib/fechas'
+import { mensajeErrorAmigable } from '../lib/erroresFirebase'
+import { INPUT } from '../lib/estilos'
+import { crearLibro, agregarHojaTabular, insertarMiniaturas, celdaEnlaces, crearPresupuestoImagenes, descargarLibro } from '../lib/excel'
+import Tarjeta from '../components/Tarjeta'
+import Boton from '../components/Boton'
+import Alerta from '../components/Alerta'
+import { IconoReporte, IconoDescarga } from '../lib/iconos'
+
+const TIPOS_REPORTE = [
+  {
+    id: 'movimientos',
+    label: 'Movimientos de vehículos',
+    descripcion: 'Entregas y recepciones registradas, con fotos y documentos adjuntos.',
+  },
+  {
+    id: 'clientes',
+    label: 'Clientes por comercial',
+    descripcion: 'Clientes atendidos por cada comercial, efectivos y descartados.',
+  },
+  {
+    id: 'reservas',
+    label: 'Reservas y vehículos por comercial/directivo',
+    descripcion: 'Reservas hechas por comerciales y directivos, con el resultado y evidencia de entrega.',
+  },
+]
+
+function primeroDelMesPasado() {
+  const hoy = new Date()
+  const hace30 = new Date(hoy)
+  hace30.setDate(hoy.getDate() - 30)
+  return hace30
+}
+
+function formatoFechaHora(timestamp) {
+  return timestamp.toDate().toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+async function construirReporteMovimientos(libro, { desde, hasta, vehiculoId, vehiculosPorId }) {
+  const movimientos = (await listarMovimientosEnRango(desde, hasta))
+    .filter((m) => !vehiculoId || m.vehiculoId === vehiculoId)
+    .sort((a, b) => a.fecha.toDate() - b.fecha.toDate())
+
+  const columnas = [
+    { header: 'Fecha', key: 'fecha', width: 18 },
+    { header: 'Placa', key: 'placa', width: 12 },
+    { header: 'Vehículo', key: 'vehiculo', width: 22 },
+    { header: 'Tipo', key: 'tipo', width: 12 },
+    { header: 'Quién recibe', key: 'quienRecibe', width: 22 },
+    { header: 'Quién entrega', key: 'quienEntrega', width: 22 },
+    { header: 'Motivo', key: 'motivo', width: 24 },
+    { header: 'Foto 1', key: 'foto1', width: 14 },
+    { header: 'Foto 2', key: 'foto2', width: 14 },
+    { header: 'Foto 3', key: 'foto3', width: 14 },
+    { header: 'Documento', key: 'documento', width: 14 },
+    { header: 'Enlaces (todos los adjuntos)', key: 'enlaces', width: 42 },
+  ]
+  const hoja = agregarHojaTabular(libro, 'Movimientos', columnas)
+  const colFoto1 = columnas.findIndex((c) => c.key === 'foto1')
+  const colDocumento = columnas.findIndex((c) => c.key === 'documento')
+  const colEnlaces = columnas.findIndex((c) => c.key === 'enlaces') + 1
+
+  const presupuesto = crearPresupuestoImagenes()
+
+  for (const m of movimientos) {
+    const vehiculo = vehiculosPorId[m.vehiculoId]
+    const fila = hoja.addRow({
+      fecha: formatoFechaHora(m.fecha),
+      placa: vehiculo?.placa ?? '—',
+      vehiculo: vehiculo?.marcaModelo ?? '',
+      tipo: m.tipo === 'entrega' ? 'Entrega' : 'Recepción',
+      quienRecibe: m.quienRecibe?.nombre ?? '',
+      quienEntrega: m.quienEntrega?.nombre ?? '',
+      motivo: m.motivo ?? '',
+    }).number
+
+    const fotos = m.fotos ?? []
+    await insertarMiniaturas(libro, hoja, fila, colFoto1, fotos.slice(0, 3), presupuesto)
+    if (m.documentoEscaneadoURL) {
+      await insertarMiniaturas(libro, hoja, fila, colDocumento, [m.documentoEscaneadoURL], presupuesto)
+    }
+    const enlaces = [...fotos, m.video, m.documentoEscaneadoURL].filter(Boolean)
+    celdaEnlaces(hoja, fila, colEnlaces, enlaces)
+  }
+
+  return movimientos.length
+}
+
+async function construirReporteClientes(libro, { desde, hasta, comercialId, usuariosPorId }) {
+  const clientes = (await listarClientesEnRango(desde, hasta))
+    .filter((c) => !comercialId || c.comercialAsignadoId === comercialId)
+    .sort((a, b) => a.fechaHora.toDate() - b.fechaHora.toDate())
+
+  const columnas = [
+    { header: 'Fecha', key: 'fecha', width: 18 },
+    { header: 'Comercial', key: 'comercial', width: 22 },
+    { header: 'Cliente', key: 'cliente', width: 22 },
+    { header: 'Teléfono', key: 'telefono', width: 16 },
+    { header: 'Tipo', key: 'tipo', width: 12 },
+    { header: 'Pidió específico', key: 'especifico', width: 15 },
+    { header: 'Efectivo', key: 'efectivo', width: 12 },
+    { header: 'Motivo descarte', key: 'motivoDescarte', width: 24 },
+  ]
+  const hoja = agregarHojaTabular(libro, 'Clientes', columnas)
+
+  for (const c of clientes) {
+    hoja.addRow({
+      fecha: formatoFechaHora(c.fechaHora),
+      comercial: usuariosPorId[c.comercialAsignadoId]?.nombre ?? '—',
+      cliente: c.nombre,
+      telefono: c.telefono ?? '',
+      tipo: c.tipo === 'nuevo' ? 'Nuevo' : 'Recurrente',
+      especifico: c.comercialSolicitado ? 'Sí' : 'No',
+      efectivo: c.efectivo ? 'Sí' : 'No',
+      motivoDescarte: c.efectivo ? '' : (c.motivoDescarte ?? ''),
+    })
+  }
+
+  return clientes.length
+}
+
+async function construirReporteReservas(libro, { desde, hasta, personaId, vehiculosPorId }) {
+  const [reservas, movimientos] = await Promise.all([
+    listarReservasEnRango(desde, hasta),
+    listarMovimientosEnRango(desde, hasta),
+  ])
+  const movimientosPorId = Object.fromEntries(movimientos.map((m) => [m.id, m]))
+
+  const reservasFiltradas = reservas
+    .filter((r) => r.solicitadoPor?.uid && (!personaId || r.solicitadoPor.uid === personaId))
+    .sort((a, b) => a.fechaInicio.toDate() - b.fechaInicio.toDate())
+
+  const columnas = [
+    { header: 'Persona', key: 'persona', width: 22 },
+    { header: 'Rol', key: 'rol', width: 12 },
+    { header: 'Placa', key: 'placa', width: 12 },
+    { header: 'Vehículo', key: 'vehiculo', width: 20 },
+    { header: 'Inicio', key: 'inicio', width: 18 },
+    { header: 'Fin', key: 'fin', width: 18 },
+    { header: 'Estado', key: 'estado', width: 12 },
+    { header: 'Resultado', key: 'resultado', width: 12 },
+    { header: 'Motivo', key: 'motivo', width: 22 },
+    { header: 'Foto 1', key: 'foto1', width: 14 },
+    { header: 'Foto 2', key: 'foto2', width: 14 },
+    { header: 'Enlaces (todos los adjuntos)', key: 'enlaces', width: 42 },
+  ]
+  const hoja = agregarHojaTabular(libro, 'Reservas', columnas)
+  const colFoto1 = columnas.findIndex((c) => c.key === 'foto1')
+  const colEnlaces = columnas.findIndex((c) => c.key === 'enlaces') + 1
+
+  const presupuesto = crearPresupuestoImagenes()
+
+  const ROTULO_ESTADO = { activa: 'Activa', cancelada: 'Cancelada' }
+  const ROTULO_RESULTADO = { pendiente: 'Pendiente', cumplida: 'Cumplida', incumplida: 'Incumplida' }
+
+  for (const r of reservasFiltradas) {
+    const vehiculo = vehiculosPorId[r.vehiculoId]
+    const movimiento = r.movimientoId ? movimientosPorId[r.movimientoId] : null
+    const fila = hoja.addRow({
+      persona: r.solicitadoPor?.nombre ?? '',
+      rol: r.solicitadoPor?.tipo === 'comercial' ? 'Comercial' : 'Directivo',
+      placa: vehiculo?.placa ?? '—',
+      vehiculo: vehiculo?.marcaModelo ?? '',
+      inicio: formatoFechaHora(r.fechaInicio),
+      fin: formatoFechaHora(r.fechaFin),
+      estado: ROTULO_ESTADO[r.estado] ?? r.estado,
+      resultado: ROTULO_RESULTADO[r.resultado] ?? r.resultado,
+      motivo: r.motivo ?? '',
+    }).number
+
+    if (movimiento) {
+      const fotos = movimiento.fotos ?? []
+      await insertarMiniaturas(libro, hoja, fila, colFoto1, fotos.slice(0, 2), presupuesto)
+      const enlaces = [...fotos, movimiento.video, movimiento.documentoEscaneadoURL].filter(Boolean)
+      celdaEnlaces(hoja, fila, colEnlaces, enlaces)
+    }
+  }
+
+  return reservasFiltradas.length
+}
+
+export default function ReportesPage() {
+  const [vehiculos, setVehiculos] = useState([])
+  const [usuarios, setUsuarios] = useState([])
+  const [tipoReporte, setTipoReporte] = useState('movimientos')
+  const [entidadId, setEntidadId] = useState('')
+  const [desde, setDesde] = useState(fechaLocalYYYYMMDD(primeroDelMesPasado()))
+  const [hasta, setHasta] = useState(fechaLocalYYYYMMDD())
+  const [generando, setGenerando] = useState(false)
+  const [mensaje, setMensaje] = useState('')
+
+  useEffect(() => suscribirVehiculos(setVehiculos), [])
+  useEffect(() => suscribirUsuarios(setUsuarios), [])
+
+  const vehiculosPorId = useMemo(() => Object.fromEntries(vehiculos.map((v) => [v.id, v])), [vehiculos])
+  const usuariosPorId = useMemo(() => Object.fromEntries(usuarios.map((u) => [u.id, u])), [usuarios])
+  const comerciales = useMemo(() => usuarios.filter((u) => u.rol === 'comercial'), [usuarios])
+  const comercialesYDirectivos = useMemo(() => usuarios.filter((u) => u.rol === 'comercial' || u.rol === 'directivo'), [usuarios])
+
+  function handleCambiarTipo(id) {
+    setTipoReporte(id)
+    setEntidadId('')
+    setMensaje('')
+  }
+
+  async function handleGenerar(e) {
+    e.preventDefault()
+    setMensaje('')
+
+    const fechaDesde = parseFechaLocal(desde)
+    const fechaHasta = parseFechaLocal(hasta)
+    fechaHasta.setHours(23, 59, 59, 999)
+
+    if (fechaHasta < fechaDesde) {
+      setMensaje('La fecha "hasta" debe ser igual o posterior a "desde".')
+      return
+    }
+
+    setGenerando(true)
+    try {
+      const libro = crearLibro()
+      let filas = 0
+      let nombreBase = ''
+
+      if (tipoReporte === 'movimientos') {
+        filas = await construirReporteMovimientos(libro, { desde: fechaDesde, hasta: fechaHasta, vehiculoId: entidadId, vehiculosPorId })
+        nombreBase = entidadId ? `Movimientos_${vehiculosPorId[entidadId]?.placa ?? entidadId}` : 'Movimientos_todos_los_vehiculos'
+      } else if (tipoReporte === 'clientes') {
+        filas = await construirReporteClientes(libro, { desde: fechaDesde, hasta: fechaHasta, comercialId: entidadId, usuariosPorId })
+        nombreBase = entidadId ? `Clientes_${usuariosPorId[entidadId]?.nombre ?? entidadId}` : 'Clientes_todos_los_comerciales'
+      } else {
+        filas = await construirReporteReservas(libro, { desde: fechaDesde, hasta: fechaHasta, personaId: entidadId, vehiculosPorId })
+        nombreBase = entidadId ? `Reservas_${usuariosPorId[entidadId]?.nombre ?? entidadId}` : 'Reservas_todos'
+      }
+
+      if (filas === 0) {
+        setMensaje('No hay datos para ese rango y esa selección.')
+        return
+      }
+
+      const nombreArchivo = `${nombreBase.replace(/\s+/g, '_')}_${desde}_a_${hasta}.xlsx`
+      await descargarLibro(libro, nombreArchivo)
+      setMensaje(`Reporte generado: ${filas} registro${filas === 1 ? '' : 's'}.`)
+    } catch (err) {
+      setMensaje(mensajeErrorAmigable(err))
+    } finally {
+      setGenerando(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <h1 className="text-lg font-semibold text-gray-900">Reportes</h1>
+
+      <Tarjeta className="p-4 space-y-4">
+        <div className="space-y-2">
+          {TIPOS_REPORTE.map((t) => (
+            <label
+              key={t.id}
+              className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
+                tipoReporte === t.id ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              <input
+                type="radio"
+                className="mt-1"
+                checked={tipoReporte === t.id}
+                onChange={() => handleCambiarTipo(t.id)}
+              />
+              <span>
+                <span className="block text-sm font-medium text-gray-900">{t.label}</span>
+                <span className="block text-xs text-gray-500">{t.descripcion}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+
+        <form onSubmit={handleGenerar} className="space-y-3 pt-2 border-t border-gray-100">
+          {tipoReporte === 'movimientos' && (
+            <select value={entidadId} onChange={(e) => setEntidadId(e.target.value)} className={`${INPUT} animate-slide-up`}>
+              <option value="">Todos los vehículos</option>
+              {vehiculos.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.placa} {v.marcaModelo ? `— ${v.marcaModelo}` : ''}
+                </option>
+              ))}
+            </select>
+          )}
+          {tipoReporte === 'clientes' && (
+            <select value={entidadId} onChange={(e) => setEntidadId(e.target.value)} className={`${INPUT} animate-slide-up`}>
+              <option value="">Todos los comerciales</option>
+              {comerciales.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.nombre}
+                </option>
+              ))}
+            </select>
+          )}
+          {tipoReporte === 'reservas' && (
+            <select value={entidadId} onChange={(e) => setEntidadId(e.target.value)} className={`${INPUT} animate-slide-up`}>
+              <option value="">Todos (comerciales y directivos)</option>
+              {comercialesYDirectivos.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.nombre} ({u.rol === 'comercial' ? 'Comercial' : 'Directivo'})
+                </option>
+              ))}
+            </select>
+          )}
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Desde</label>
+              <input required type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className={INPUT} />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Hasta</label>
+              <input required type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className={INPUT} />
+            </div>
+          </div>
+
+          <Boton type="submit" cargando={generando} className="w-full">
+            {!generando && <IconoDescarga className="w-4 h-4" />}
+            {generando ? 'Generando…' : 'Generar Excel'}
+          </Boton>
+          <Alerta tipo={mensaje.startsWith('Reporte generado') ? 'exito' : 'info'}>{mensaje}</Alerta>
+        </form>
+      </Tarjeta>
+
+      <div className="flex items-start gap-2.5 text-xs text-gray-400 px-1">
+        <IconoReporte className="w-4 h-4 shrink-0 mt-0.5" />
+        <p>
+          Las fotos y el documento firmado quedan incrustados como miniaturas dentro del Excel cuando es posible descargarlos; siempre queda
+          además el enlace original en la columna de enlaces, incluido el video (que no se puede incrustar en una celda).
+        </p>
+      </div>
+    </div>
+  )
+}

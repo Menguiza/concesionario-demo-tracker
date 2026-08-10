@@ -40,6 +40,19 @@ export function suscribirClientesDeComercial(comercialId, callback) {
   })
 }
 
+// Todos los clientes (de cualquier comercial) en el rango — para reportes.
+// Un solo filtro por rango; el filtrado por comercial específico se hace en
+// el cliente para no depender de un índice compuesto.
+export async function listarClientesEnRango(desde, hasta) {
+  const q = query(
+    collection(db, 'clientes'),
+    where('fechaHora', '>=', Timestamp.fromDate(desde)),
+    where('fechaHora', '<=', Timestamp.fromDate(hasta))
+  )
+  const snap = await getDocs(q)
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+}
+
 export async function contarClientesEfectivosEnRango(comercialId, desde, hasta) {
   const q = query(
     collection(db, 'clientes'),
