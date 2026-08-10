@@ -5,7 +5,10 @@ import { verificarDisponibilidad, crearReserva } from '../features/reservas/rese
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
+import { parseFechaLocal } from '../lib/fechas'
 import { useAuth } from '../context/AuthContext'
+
+const PATRON_PLACA = /^[A-Z]{3}[0-9]{3}$/
 
 function EstadoBadge({ vehiculo, picoYPlacaConfig }) {
   const bloqueado = estaBloqueadoPorPicoYPlaca(vehiculo, picoYPlacaConfig)
@@ -131,16 +134,18 @@ function ChequeoDisponibilidad({ vehiculo, picoYPlacaConfig }) {
 
   async function handleChequear() {
     if (!desde || !hasta) return
-    const r = await verificarDisponibilidad(vehiculo.id, new Date(desde), new Date(hasta))
+    const fechaInicio = parseFechaLocal(desde)
+    const fechaFin = parseFechaLocal(hasta)
+    const r = await verificarDisponibilidad(vehiculo.id, fechaInicio, fechaFin)
     setResultado(r)
-    setDiasPicoYPlaca(diasBloqueadosPorPicoYPlacaEnRango(vehiculo, picoYPlacaConfig, new Date(desde), new Date(hasta)))
+    setDiasPicoYPlaca(diasBloqueadosPorPicoYPlacaEnRango(vehiculo, picoYPlacaConfig, fechaInicio, fechaFin))
   }
 
   async function handleReservar() {
     await crearReserva({
       vehiculoId: vehiculo.id,
-      fechaInicio: new Date(desde),
-      fechaFin: new Date(hasta),
+      fechaInicio: parseFechaLocal(desde),
+      fechaFin: parseFechaLocal(hasta),
       solicitadoPor: { tipo: 'anfitriona' },
       motivo: 'Reserva manual',
     })
@@ -189,10 +194,19 @@ export default function VehiculosPage() {
   useEffect(() => suscribirVehiculos(setVehiculos), [])
   useEffect(() => suscribirPicoYPlacaConfig(setPicoYPlacaConfig), [])
 
+  function handlePlacaChange(valor) {
+    const limpio = valor.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
+    setNuevaPlaca(limpio)
+  }
+
   async function handleCrearVehiculo(e) {
     e.preventDefault()
     setErrorVehiculo('')
     const placaNormalizada = nuevaPlaca.trim().toUpperCase()
+    if (!PATRON_PLACA.test(placaNormalizada)) {
+      setErrorVehiculo('La placa debe tener el formato ABC123: 3 letras seguidas de 3 números.')
+      return
+    }
     const yaExiste = vehiculos.some((v) => v.placa.trim().toUpperCase() === placaNormalizada)
     if (yaExiste) {
       setErrorVehiculo(`Ya existe un vehículo con la placa ${placaNormalizada}.`)
@@ -246,13 +260,17 @@ export default function VehiculosPage() {
       {rol === 'admin' && (
         <form onSubmit={handleCrearVehiculo} className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
           <h2 className="text-sm font-semibold text-gray-900">Agregar vehículo</h2>
-          <input
-            required
-            placeholder="Placa"
-            value={nuevaPlaca}
-            onChange={(e) => setNuevaPlaca(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
+          <div>
+            <input
+              required
+              placeholder="Ej: ABC123"
+              value={nuevaPlaca}
+              onChange={(e) => handlePlacaChange(e.target.value)}
+              maxLength={6}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm uppercase"
+            />
+            <p className="text-xs text-gray-400 mt-1">Formato: 3 letras + 3 números, sin espacios ni guion (ej: ABC123).</p>
+          </div>
           <input
             placeholder="Marca / modelo"
             value={nuevoModelo}
