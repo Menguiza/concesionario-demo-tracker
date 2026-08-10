@@ -290,14 +290,26 @@ function SeccionUsuariosExistentes({ usuarios, equipos }) {
 }
 
 function SeccionPicoYPlaca() {
-  const [config, setConfig] = useState(null)
+  const [textoPorDia, setTextoPorDia] = useState(null)
+  const [mensaje, setMensaje] = useState('')
 
-  useEffect(() => suscribirPicoYPlacaConfig((c) => setConfig(c ?? Object.fromEntries(DIAS_SEMANA.map((d) => [d, { digitos: [], horaInicio: '', horaFin: '' }])))), [])
+  useEffect(
+    () =>
+      suscribirPicoYPlacaConfig((c) => {
+        const base = c ?? Object.fromEntries(DIAS_SEMANA.map((d) => [d, { digitos: [] }]))
+        setTextoPorDia((prev) => prev ?? Object.fromEntries(DIAS_SEMANA.map((d) => [d, (base[d]?.digitos ?? []).join(', ')])))
+      }),
+    []
+  )
 
-  if (!config) return null
+  if (!textoPorDia) return null
 
-  function handleDigitosChange(dia, valor) {
-    setConfig({ ...config, [dia]: { ...config[dia], digitos: valor.split(',').map((d) => d.trim()).filter(Boolean) } })
+  async function handleGuardar() {
+    const config = Object.fromEntries(
+      DIAS_SEMANA.map((dia) => [dia, { digitos: textoPorDia[dia].split(',').map((d) => d.trim()).filter(Boolean) }])
+    )
+    await guardarPicoYPlacaConfig(config)
+    setMensaje('Guardado.')
   }
 
   return (
@@ -311,16 +323,19 @@ function SeccionPicoYPlaca() {
         <div key={dia} className="flex items-center gap-2 text-xs">
           <span className="w-20 capitalize">{dia}</span>
           <input
-            placeholder="dígitos, ej: 1,2"
-            value={(config[dia]?.digitos ?? []).join(', ')}
-            onChange={(e) => handleDigitosChange(dia, e.target.value)}
+            placeholder="dígitos, ej: 1, 2"
+            value={textoPorDia[dia]}
+            onChange={(e) => setTextoPorDia({ ...textoPorDia, [dia]: e.target.value })}
             className="flex-1 rounded border border-gray-300 px-2 py-1"
           />
         </div>
       ))}
-      <button onClick={() => guardarPicoYPlacaConfig(config)} className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm">
-        Guardar
-      </button>
+      <div className="flex items-center gap-2">
+        <button onClick={handleGuardar} className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm">
+          Guardar
+        </button>
+        {mensaje && <p className="text-xs text-gray-500">{mensaje}</p>}
+      </div>
     </section>
   )
 }

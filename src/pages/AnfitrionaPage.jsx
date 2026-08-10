@@ -68,12 +68,14 @@ export default function AnfitrionaPage() {
       return
     }
 
+    const llegadasDeHoy = equipoId === equipoActivoId ? (cola?.llegadas ?? {}) : {}
+
     try {
       const conteos = await Promise.all(
         miembros.map(async (m) => ({
           id: m.id,
           clientesEfectivosSemanaPasada: await contarClientesEfectivosEnRango(m.id, desde, hasta),
-          horaLlegadaHoy: null,
+          horaLlegadaHoy: llegadasDeHoy[m.id] ?? null,
         }))
       )
 
@@ -145,10 +147,11 @@ export default function AnfitrionaPage() {
   async function toggleOcupado(comercialId) {
     const ocupadosActuales = cola.ocupados ?? []
     const yaOcupado = ocupadosActuales.includes(comercialId)
-    if (!yaOcupado && !cola.llegadas?.[comercialId]) {
-      await registrarLlegada(equipoActivoId, comercialId, cola.llegadas ?? {})
-    }
     await marcarOcupado(equipoActivoId, comercialId, !yaOcupado, ocupadosActuales)
+  }
+
+  async function handleMarcarLlegada(comercialId) {
+    await registrarLlegada(equipoActivoId, comercialId, cola.llegadas ?? {})
   }
 
   if (!equipoActivoId) {
@@ -225,20 +228,32 @@ export default function AnfitrionaPage() {
           const comercial = comercialesPorId[id]
           const ocupado = cola.ocupados?.includes(id)
           const enHorario = comercial ? estaEnHorario(comercial.horarioSemanal) : false
+          const llegada = cola.llegadas?.[id]
           return (
             <li
               key={id}
-              className="flex items-center justify-between bg-white rounded-lg border border-gray-200 px-3 py-2"
+              className="flex flex-wrap items-center justify-between gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2"
             >
               <span className="text-sm text-gray-900">
                 {i + 1}. {comercial?.nombre ?? id} {!enHorario && <span className="text-gray-400">(fuera de horario)</span>}
               </span>
-              <button
-                onClick={() => toggleOcupado(id)}
-                className={`text-xs rounded-full px-3 py-1 ${ocupado ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}
-              >
-                {ocupado ? 'Ocupado' : 'Disponible'}
-              </button>
+              <div className="flex items-center gap-2">
+                {llegada ? (
+                  <span className="text-xs text-gray-500">
+                    Llegó {new Date(llegada).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                ) : (
+                  <button onClick={() => handleMarcarLlegada(id)} className="text-xs text-gray-500 underline">
+                    Marcar llegada
+                  </button>
+                )}
+                <button
+                  onClick={() => toggleOcupado(id)}
+                  className={`text-xs rounded-full px-3 py-1 ${ocupado ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}
+                >
+                  {ocupado ? 'Ocupado' : 'Disponible'}
+                </button>
+              </div>
             </li>
           )
         })}
