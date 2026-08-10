@@ -9,11 +9,13 @@ import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango } from '
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { parseFechaLocal } from '../lib/fechas'
 import { fotosFaltantes } from '../lib/fotosVehiculo'
+import { coincideBusqueda } from '../lib/texto'
 import { INPUT } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
 import CampoArchivo from '../components/CampoArchivo'
 import FotosVehiculo from '../components/FotosVehiculo'
 import FormularioRegistroPropio from '../components/FormularioRegistroPropio'
+import BarraBusqueda from '../components/BarraBusqueda'
 import Tarjeta from '../components/Tarjeta'
 import Boton from '../components/Boton'
 import Badge from '../components/Badge'
@@ -292,6 +294,7 @@ export default function VehiculosPage() {
   const [nuevoModelo, setNuevoModelo] = useState('')
   const [nuevoElectrico, setNuevoElectrico] = useState(false)
   const [errorVehiculo, setErrorVehiculo] = useState('')
+  const [busqueda, setBusqueda] = useState('')
 
   useEffect(() => suscribirVehiculos(setVehiculos), [])
   useEffect(() => suscribirPicoYPlacaConfig(setPicoYPlacaConfig), [])
@@ -361,6 +364,8 @@ export default function VehiculosPage() {
     )
   }
 
+  const vehiculosVisibles = vehiculos.filter((v) => coincideBusqueda(`${v.placa} ${v.marcaModelo ?? ''}`, busqueda))
+
   return (
     <div className="space-y-6">
       <div className="flex items-baseline justify-between">
@@ -370,8 +375,16 @@ export default function VehiculosPage() {
 
       {vehiculos.length === 0 && <Vacio titulo="Todavía no hay vehículos" descripcion="Un admin puede agregar el primero abajo." />}
 
+      {vehiculos.length > 0 && (
+        <BarraBusqueda valor={busqueda} onChange={setBusqueda} placeholder="Buscar por placa o modelo..." />
+      )}
+
+      {vehiculos.length > 0 && vehiculosVisibles.length === 0 && (
+        <Vacio titulo="Sin resultados" descripcion={`Nada coincide con "${busqueda}".`} />
+      )}
+
       <ul className="space-y-3">
-        {vehiculos.map((v, i) => {
+        {vehiculosVisibles.map((v, i) => {
           const relacion = gestionAmplia ? null : relacionPropia(v)
           const reservaAsignada = v.estado === 'disponible' ? reservaAsignadaAhora(v.id) : null
           return (

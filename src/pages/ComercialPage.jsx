@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react'
 import { suscribirClientesDeComercial, marcarDescarte, revertirDescarte } from '../features/clientes/clientesApi'
 import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
 import { agruparClientesPorDia, formatoTituloDia } from '../lib/agruparClientesPorDia'
+import { coincideBusqueda } from '../lib/texto'
 import { INPUT_SM } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
 import Tarjeta from '../components/Tarjeta'
 import Badge from '../components/Badge'
 import Boton from '../components/Boton'
 import Vacio from '../components/Vacio'
+import BarraBusqueda from '../components/BarraBusqueda'
 
 export default function ComercialPage() {
   const { firebaseUser } = useAuth()
@@ -15,6 +17,7 @@ export default function ComercialPage() {
   const [editando, setEditando] = useState(null)
   const [motivo, setMotivo] = useState(MOTIVOS_DESCARTE[0])
   const [mostrarDescartados, setMostrarDescartados] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
 
   useEffect(() => {
     if (!firebaseUser) return
@@ -26,7 +29,7 @@ export default function ComercialPage() {
     setEditando(null)
   }
 
-  const visibles = clientes.filter((c) => mostrarDescartados || c.efectivo)
+  const visibles = clientes.filter((c) => (mostrarDescartados || c.efectivo) && coincideBusqueda(c.nombre, busqueda))
   const grupos = agruparClientesPorDia(visibles)
 
   return (
@@ -38,7 +41,14 @@ export default function ComercialPage() {
         </button>
       </div>
 
-      {grupos.length === 0 && <Vacio titulo="Todavía no tienes clientes registrados" />}
+      {clientes.length > 0 && <BarraBusqueda valor={busqueda} onChange={setBusqueda} placeholder="Buscar cliente..." />}
+
+      {grupos.length === 0 && (
+        <Vacio
+          titulo={clientes.length === 0 ? 'Todavía no tienes clientes registrados' : 'Sin resultados'}
+          descripcion={clientes.length > 0 && busqueda ? `Nada coincide con "${busqueda}".` : undefined}
+        />
+      )}
 
       {grupos.map((grupo) => (
         <div key={grupo.fecha.toISOString()} className="space-y-2">

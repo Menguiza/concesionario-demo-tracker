@@ -11,6 +11,7 @@ import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
 import { diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
+import { coincideBusqueda } from '../lib/texto'
 import { INPUT } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
 import Tarjeta from '../components/Tarjeta'
@@ -18,6 +19,7 @@ import Boton from '../components/Boton'
 import Badge from '../components/Badge'
 import Alerta from '../components/Alerta'
 import Vacio from '../components/Vacio'
+import BarraBusqueda from '../components/BarraBusqueda'
 
 const ROLES_QUE_PUEDEN_GESTIONAR = ['admin', 'anfitriona', 'directivo']
 
@@ -161,6 +163,7 @@ export default function ReservasPage() {
   const [comerciales, setComerciales] = useState([])
   const [directivos, setDirectivos] = useState([])
   const [mostrarCanceladas, setMostrarCanceladas] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
 
   const [vehiculoId, setVehiculoId] = useState('')
   const [inicio, setInicio] = useState('')
@@ -193,7 +196,11 @@ export default function ReservasPage() {
   }, [])
 
   const vehiculosPorId = useMemo(() => Object.fromEntries(vehiculos.map((v) => [v.id, v])), [vehiculos])
-  const reservasVisibles = reservas.filter((r) => mostrarCanceladas || r.estado === 'activa')
+  const reservasVisibles = reservas.filter(
+    (r) =>
+      (mostrarCanceladas || r.estado === 'activa') &&
+      coincideBusqueda(`${vehiculosPorId[r.vehiculoId]?.placa ?? ''} ${r.solicitadoPor?.nombre ?? ''}`, busqueda)
+  )
   const listaPersonas = quienTipo === 'comercial' ? comerciales : quienTipo === 'directivo' ? directivos : []
 
   function handleCambiarQuienTipo(nuevoTipo) {
@@ -375,7 +382,10 @@ export default function ReservasPage() {
               {mostrarCanceladas ? 'Ocultar canceladas' : 'Ver canceladas'}
             </button>
           </div>
-          {reservasVisibles.length === 0 && <Vacio titulo="No hay reservas" />}
+          <BarraBusqueda valor={busqueda} onChange={setBusqueda} placeholder="Buscar por placa o persona..." />
+          {reservasVisibles.length === 0 && (
+            <Vacio titulo="No hay reservas" descripcion={busqueda ? `Nada coincide con "${busqueda}".` : undefined} />
+          )}
           <ul className="space-y-2">
             {reservasVisibles.map((r, i) => {
               const vehiculo = vehiculosPorId[r.vehiculoId]

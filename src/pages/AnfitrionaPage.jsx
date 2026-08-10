@@ -280,6 +280,58 @@ export default function AnfitrionaPage() {
         </Tarjeta>
       )}
 
+      <Tarjeta className="p-4">
+        <form onSubmit={handleAsignar} className="space-y-3">
+          <h2 className="text-sm font-semibold text-gray-900">Registrar cliente</h2>
+          <input
+            required
+            placeholder="Nombre del cliente"
+            value={nombreCliente}
+            onChange={(e) => setNombreCliente(e.target.value)}
+            className={INPUT}
+          />
+          <input
+            placeholder="Teléfono (opcional)"
+            value={telefonoCliente}
+            onChange={(e) => setTelefonoCliente(e.target.value)}
+            className={INPUT}
+          />
+          <div className="flex gap-4 text-sm">
+            <label className="flex items-center gap-1.5">
+              <input type="radio" checked={tipoCliente === 'nuevo'} onChange={() => setTipoCliente('nuevo')} />
+              Nuevo
+            </label>
+            <label className="flex items-center gap-1.5">
+              <input type="radio" checked={tipoCliente === 'recurrente'} onChange={() => setTipoCliente('recurrente')} />
+              Recurrente
+            </label>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={pideEspecifico} onChange={(e) => setPideEspecifico(e.target.checked)} />
+            Pide un comercial específico
+          </label>
+          {pideEspecifico && (
+            <select
+              required
+              value={comercialEspecificoId}
+              onChange={(e) => setComercialEspecificoId(e.target.value)}
+              className={`${INPUT} animate-slide-up`}
+            >
+              <option value="">Selecciona comercial</option>
+              {comercialesActivosEquipo.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          )}
+          <Boton type="submit" className="w-full">
+            Asignar
+          </Boton>
+          <Alerta tipo="info">{mensaje}</Alerta>
+        </form>
+      </Tarjeta>
+
       <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 text-xs text-gray-500 space-y-1.5">
         <p>
           <strong className="text-gray-700">Siguiente:</strong> el comercial resaltado en azul es quien va a recibir el próximo cliente
@@ -291,6 +343,8 @@ export default function AnfitrionaPage() {
           manual, y ahí sí se libera directo, sin preguntar nada.
         </p>
       </div>
+
+      <h2 className="text-sm font-semibold text-gray-900">Fila del equipo</h2>
 
       <ol className="space-y-2.5">
         {(cola?.orden ?? []).map((id, i) => {
@@ -403,58 +457,6 @@ export default function AnfitrionaPage() {
           )
         })}
       </ol>
-
-      <Tarjeta className="p-4">
-        <form onSubmit={handleAsignar} className="space-y-3">
-          <h2 className="text-sm font-semibold text-gray-900">Registrar cliente</h2>
-          <input
-            required
-            placeholder="Nombre del cliente"
-            value={nombreCliente}
-            onChange={(e) => setNombreCliente(e.target.value)}
-            className={INPUT}
-          />
-          <input
-            placeholder="Teléfono (opcional)"
-            value={telefonoCliente}
-            onChange={(e) => setTelefonoCliente(e.target.value)}
-            className={INPUT}
-          />
-          <div className="flex gap-4 text-sm">
-            <label className="flex items-center gap-1.5">
-              <input type="radio" checked={tipoCliente === 'nuevo'} onChange={() => setTipoCliente('nuevo')} />
-              Nuevo
-            </label>
-            <label className="flex items-center gap-1.5">
-              <input type="radio" checked={tipoCliente === 'recurrente'} onChange={() => setTipoCliente('recurrente')} />
-              Recurrente
-            </label>
-          </div>
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input type="checkbox" checked={pideEspecifico} onChange={(e) => setPideEspecifico(e.target.checked)} />
-            Pide un comercial específico
-          </label>
-          {pideEspecifico && (
-            <select
-              required
-              value={comercialEspecificoId}
-              onChange={(e) => setComercialEspecificoId(e.target.value)}
-              className={`${INPUT} animate-slide-up`}
-            >
-              <option value="">Selecciona comercial</option>
-              {comercialesActivosEquipo.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-          )}
-          <Boton type="submit" className="w-full">
-            Asignar
-          </Boton>
-          <Alerta tipo="info">{mensaje}</Alerta>
-        </form>
-      </Tarjeta>
     </div>
   )
 }

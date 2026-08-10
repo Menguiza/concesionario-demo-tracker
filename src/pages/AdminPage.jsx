@@ -4,10 +4,12 @@ import { suscribirUsuarios, crearUsuarioStaff, actualizarUsuario } from '../feat
 import { suscribirPicoYPlacaConfig, guardarPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { DIAS_SEMANA } from '../lib/horario'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
+import { coincideBusqueda } from '../lib/texto'
 import { INPUT, INPUT_SM } from '../lib/estilos'
 import Tarjeta from '../components/Tarjeta'
 import Boton from '../components/Boton'
 import Alerta from '../components/Alerta'
+import BarraBusqueda from '../components/BarraBusqueda'
 
 function horarioVacio() {
   return Object.fromEntries(DIAS_SEMANA.map((d) => [d, { activo: false, inicio: '08:00', fin: '18:00' }]))
@@ -345,14 +347,20 @@ function FilaUsuarioExistente({ usuario, equipos }) {
 }
 
 function SeccionUsuariosExistentes({ usuarios, equipos }) {
+  const [busqueda, setBusqueda] = useState('')
   if (usuarios.length === 0) return null
+  const visibles = usuarios.filter((u) => coincideBusqueda(u.nombre, busqueda))
   return (
     <Tarjeta animar className="p-4 space-y-1">
       <h2 className="text-sm font-semibold text-gray-900">Staff existente</h2>
       <p className="text-xs text-gray-500 mb-2">
         Toca un comercial para editar su horario. El equipo se cambia desde la sección "Equipos".
       </p>
-      {usuarios.map((u) => (
+      {usuarios.length > 3 && (
+        <BarraBusqueda valor={busqueda} onChange={setBusqueda} placeholder="Buscar por nombre..." className="mb-2" />
+      )}
+      {visibles.length === 0 && <p className="text-xs text-gray-400 py-2">Nada coincide con "{busqueda}".</p>}
+      {visibles.map((u) => (
         <FilaUsuarioExistente key={u.id} usuario={u} equipos={equipos} />
       ))}
     </Tarjeta>

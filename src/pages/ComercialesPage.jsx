@@ -4,6 +4,7 @@ import { suscribirClientesDeComercial, marcarDescarte, revertirDescarte } from '
 import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
 import { agruparClientesPorDia, formatoTituloDia } from '../lib/agruparClientesPorDia'
 import { fechaLocalYYYYMMDD } from '../lib/fechas'
+import { coincideBusqueda } from '../lib/texto'
 import { INPUT_SM } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
 import Tarjeta from '../components/Tarjeta'
@@ -11,6 +12,7 @@ import Badge from '../components/Badge'
 import Boton from '../components/Boton'
 import Alerta from '../components/Alerta'
 import Vacio from '../components/Vacio'
+import BarraBusqueda from '../components/BarraBusqueda'
 
 function ClientesDeComercial({ comercialId, puedeGestionar }) {
   const [clientes, setClientes] = useState([])
@@ -98,8 +100,11 @@ export default function ComercialesPage() {
   const puedeGestionar = rol === 'admin' || rol === 'anfitriona'
   const [comerciales, setComerciales] = useState([])
   const [expandidoId, setExpandidoId] = useState(null)
+  const [busqueda, setBusqueda] = useState('')
 
   useEffect(() => suscribirUsuarios((todos) => setComerciales(todos.filter((u) => u.rol === 'comercial'))), [])
+
+  const comercialesVisibles = comerciales.filter((c) => coincideBusqueda(c.nombre, busqueda))
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -111,8 +116,12 @@ export default function ComercialesPage() {
         </Alerta>
       )}
       {comerciales.length === 0 && <Vacio titulo="Todavía no hay comerciales registrados" />}
+      {comerciales.length > 0 && <BarraBusqueda valor={busqueda} onChange={setBusqueda} placeholder="Buscar comercial..." />}
+      {comerciales.length > 0 && comercialesVisibles.length === 0 && (
+        <Vacio titulo="Sin resultados" descripcion={`Nada coincide con "${busqueda}".`} />
+      )}
       <ul className="space-y-2">
-        {comerciales.map((c, i) => {
+        {comercialesVisibles.map((c, i) => {
           const llegadaHoy = c.ultimaLlegada?.fecha === fechaLocalYYYYMMDD() ? c.ultimaLlegada : null
           const expandido = expandidoId === c.id
           return (
