@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { suscribirVehiculos, crearVehiculo } from '../features/vehiculos/vehiculosApi'
 import { registrarMovimiento } from '../features/movimientos/movimientosApi'
-import { crearReserva, suscribirReservasDeUsuario } from '../features/reservas/reservasApi'
+import { crearReserva, suscribirReservasDeUsuario, suscribirReservas } from '../features/reservas/reservasApi'
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
 import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
@@ -21,9 +21,10 @@ const DURACIONES_ASIGNACION = [
   { horas: 8, label: 'Todo el día (8 horas)' },
 ]
 
-function EstadoBadge({ vehiculo, picoYPlacaConfig }) {
+function EstadoBadge({ vehiculo, picoYPlacaConfig, asignadoAhora }) {
   const bloqueado = estaBloqueadoPorPicoYPlaca(vehiculo, picoYPlacaConfig)
-  if (vehiculo.estado === 'prestado') return <span className="text-xs rounded-full bg-amber-100 text-amber-800 px-3 py-1">Prestado</span>
+  if (vehiculo.estado === 'prestado') return <span className="text-xs rounded-full bg-amber-100 text-amber-800 px-3 py-1">En uso</span>
+  if (asignadoAhora) return <span className="text-xs rounded-full bg-blue-100 text-blue-800 px-3 py-1">Asignado</span>
   if (bloqueado) return <span className="text-xs rounded-full bg-red-100 text-red-800 px-3 py-1">Pico y placa hoy</span>
   return <span className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-3 py-1">Disponible</span>
 }
@@ -303,6 +304,7 @@ export default function VehiculosPage() {
   const [picoYPlacaConfig, setPicoYPlacaConfig] = useState(null)
   const [personasAsignables, setPersonasAsignables] = useState([])
   const [misReservas, setMisReservas] = useState([])
+  const [todasReservas, setTodasReservas] = useState([])
   const [accionAbierta, setAccionAbierta] = useState(null)
   const [nuevaPlaca, setNuevaPlaca] = useState('')
   const [nuevoModelo, setNuevoModelo] = useState('')
@@ -311,6 +313,7 @@ export default function VehiculosPage() {
 
   useEffect(() => suscribirVehiculos(setVehiculos), [])
   useEffect(() => suscribirPicoYPlacaConfig(setPicoYPlacaConfig), [])
+  useEffect(() => suscribirReservas(setTodasReservas), [])
 
   useEffect(() => {
     if (!gestionAmplia) return
@@ -362,6 +365,20 @@ export default function VehiculosPage() {
     return { tipo: 'ninguna' }
   }
 
+  // Hay alguien con una reserva ya en curso sobre este vehículo que todavía
+  // no formalizó la entrega — estado intermedio entre disponible y en uso.
+  function reservaAsignadaAhora(vehiculoId) {
+    const ahora = new Date()
+    return todasReservas.find(
+      (r) =>
+        r.vehiculoId === vehiculoId &&
+        r.estado === 'activa' &&
+        r.resultado === 'pendiente' &&
+        ahora >= r.fechaInicio.toDate() &&
+        ahora <= r.fechaFin.toDate()
+    )
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-lg font-semibold text-gray-900">Vehículos</h1>
@@ -369,6 +386,7 @@ export default function VehiculosPage() {
       <ul className="space-y-3">
         {vehiculos.map((v) => {
           const relacion = gestionAmplia ? null : relacionPropia(v)
+          const reservaAsignada = v.estado === 'disponible' ? reservaAsignadaAhora(v.id) : null
           return (
             <li key={v.id} className="bg-white rounded-lg border border-gray-200 p-3">
               <div className="flex items-center justify-between">
@@ -380,8 +398,11 @@ export default function VehiculosPage() {
                   {v.estado === 'prestado' && v.quienTiene && (
                     <p className="text-xs text-gray-500">Lo tiene: {v.quienTiene.nombre}</p>
                   )}
+                  {reservaAsignada && (
+                    <p className="text-xs text-gray-500">Asignado a: {reservaAsignada.solicitadoPor?.nombre}</p>
+                  )}
                 </div>
-                <EstadoBadge vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} />
+                <EstadoBadge vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} asignadoAhora={Boolean(reservaAsignada)} />
               </div>
               <ConsultaPicoYPlacaRapida vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} />
 

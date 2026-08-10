@@ -234,6 +234,7 @@ function FilaUsuarioExistente({ usuario, equipos }) {
 
   const equiposDelComercial = equipos.filter((e) => e.miembros.includes(usuario.id)).map((e) => e.nombre)
   const esComercial = usuario.rol === 'comercial'
+  const puedeExpandir = usuario.rol !== 'admin'
 
   async function toggleActivo() {
     await actualizarUsuario(usuario.id, { activo: !(usuario.activo !== false) })
@@ -270,11 +271,11 @@ function FilaUsuarioExistente({ usuario, equipos }) {
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
-          onClick={() => esComercial && setExpandido((v) => !v)}
-          className={`flex-1 text-left ${esComercial ? 'cursor-pointer' : 'cursor-default'}`}
+          onClick={() => puedeExpandir && setExpandido((v) => !v)}
+          className={`flex-1 text-left ${puedeExpandir ? 'cursor-pointer' : 'cursor-default'}`}
         >
           <p className="text-sm font-medium text-gray-900">
-            {esComercial && <span className="text-gray-400 mr-1">{expandido ? '▾' : '▸'}</span>}
+            {puedeExpandir && <span className="text-gray-400 mr-1">{expandido ? '▾' : '▸'}</span>}
             {usuario.nombre}
           </p>
           <p className="text-xs text-gray-500 capitalize">
@@ -289,39 +290,41 @@ function FilaUsuarioExistente({ usuario, equipos }) {
         </label>
       </div>
 
-      {usuario.rol !== 'admin' && (
-        <div className="flex items-center gap-2">
-          <input
-            type="tel"
-            placeholder="Número de contacto"
-            value={telefono}
-            onChange={(e) => setTelefono(e.target.value)}
-            className="flex-1 text-xs rounded-lg border border-gray-300 px-2 py-1"
-          />
-          <button
-            onClick={handleGuardarTelefono}
-            disabled={guardandoTelefono}
-            className="text-xs rounded-lg bg-gray-900 text-white px-2 py-1 disabled:opacity-50 shrink-0"
-          >
-            {guardandoTelefono ? 'Guardando…' : 'Guardar'}
-          </button>
-          {mensajeTelefono && <span className="text-xs text-gray-500 shrink-0">{mensajeTelefono}</span>}
-        </div>
-      )}
-
-      {esComercial && expandido && (
-        <div className="mt-2 pl-4 space-y-2">
-          <EditorHorario horario={horario} onChange={setHorario} />
+      {puedeExpandir && expandido && (
+        <div className="mt-2 pl-4 space-y-3">
           <div className="flex items-center gap-2">
+            <input
+              type="tel"
+              placeholder="Número de contacto"
+              value={telefono}
+              onChange={(e) => setTelefono(e.target.value)}
+              className="flex-1 text-xs rounded-lg border border-gray-300 px-2 py-1"
+            />
             <button
-              onClick={handleGuardarHorario}
-              disabled={guardando}
-              className="rounded-lg bg-gray-900 text-white px-3 py-1.5 text-xs disabled:opacity-50"
+              onClick={handleGuardarTelefono}
+              disabled={guardandoTelefono}
+              className="text-xs rounded-lg bg-gray-900 text-white px-2 py-1 disabled:opacity-50 shrink-0"
             >
-              {guardando ? 'Guardando…' : 'Guardar horario'}
+              {guardandoTelefono ? 'Guardando…' : 'Guardar'}
             </button>
-            {mensaje && <p className="text-xs text-gray-500">{mensaje}</p>}
+            {mensajeTelefono && <span className="text-xs text-gray-500 shrink-0">{mensajeTelefono}</span>}
           </div>
+
+          {esComercial && (
+            <>
+              <EditorHorario horario={horario} onChange={setHorario} />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGuardarHorario}
+                  disabled={guardando}
+                  className="rounded-lg bg-gray-900 text-white px-3 py-1.5 text-xs disabled:opacity-50"
+                >
+                  {guardando ? 'Guardando…' : 'Guardar horario'}
+                </button>
+                {mensaje && <p className="text-xs text-gray-500">{mensaje}</p>}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
