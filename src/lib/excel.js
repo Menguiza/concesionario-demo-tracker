@@ -34,13 +34,16 @@ async function obtenerBufferImagen(url) {
     if (!res.ok) return null
     const tipo = res.headers.get('content-type') || ''
     if (!tipo.startsWith('image/')) return null // PDFs u otros: no se pueden embeber como imagen
-    const buffer = await res.arrayBuffer()
+    const arrayBuffer = await res.arrayBuffer()
+    // exceljs corre en el navegador, sin el global `Buffer` de Node — un
+    // ArrayBuffer crudo no tiene `.length` (solo `.byteLength`) y hace que la
+    // librería arme mal el .xlsx. Uint8Array sí es lo que espera.
     const extension = tipo.includes('png') ? 'png' : tipo.includes('gif') ? 'gif' : 'jpeg'
-    return { buffer, extension }
+    return { buffer: new Uint8Array(arrayBuffer), extension }
   } catch {
     // Sin internet, URL vencida o bloqueo de CORS del bucket: no rompemos el
-    // reporte, esa miniatura simplemente queda vacía (el enlace de texto
-    // sigue disponible en la columna de enlaces).
+    // reporte, esa miniatura simplemente queda vacía (el hipervínculo de
+    // respaldo sigue disponible en la celda).
     return null
   }
 }
@@ -75,14 +78,20 @@ export async function insertarMiniatura(libro, hoja, fila, colIndex, url, presup
   if (!url || presupuesto.restantes <= 0) return false
   const info = await obtenerBufferImagen(url)
   if (!info) return false
-  presupuesto.restantes--
-  const imageId = libro.addImage({ buffer: info.buffer, extension: info.extension })
-  hoja.addImage(imageId, {
-    tl: { col: colIndex, row: fila - 1 + 0.06 },
-    ext: { width: 88, height: 54 },
-    editAs: 'oneCell',
-  })
-  return true
+  try {
+    const imageId = libro.addImage({ buffer: info.buffer, extension: info.extension })
+    hoja.addImage(imageId, {
+      tl: { col: colIndex, row: fila - 1 + 0.06 },
+      ext: { width: 88, height: 54 },
+      editAs: 'oneCell',
+    })
+    presupuesto.restantes--
+    return true
+  } catch {
+    // Una imagen puntual con un formato raro o corrupto no debe tumbar todo
+    // el reporte — esa miniatura queda vacía, el hipervínculo sigue ahí.
+    return false
+  }
 }
 
 export async function descargarLibro(libro, nombreArchivo) {

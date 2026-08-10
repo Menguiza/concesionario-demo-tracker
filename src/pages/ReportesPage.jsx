@@ -39,7 +39,19 @@ function columnasAdjuntos() {
   ]
 }
 
+// Si algo puntual sale mal escribiendo los adjuntos de una fila (una URL
+// rara, una imagen corrupta que igual pasó las validaciones previas, etc.)
+// no debe tumbar el reporte completo — esa fila simplemente queda con lo que
+// alcanzó a escribir antes de fallar.
 async function escribirAdjuntos(libro, hoja, fila, columnas, movimiento, presupuesto) {
+  try {
+    await escribirAdjuntosInterno(libro, hoja, fila, columnas, movimiento, presupuesto)
+  } catch (err) {
+    console.error('No se pudieron escribir los adjuntos de una fila del reporte:', err)
+  }
+}
+
+async function escribirAdjuntosInterno(libro, hoja, fila, columnas, movimiento, presupuesto) {
   const fotos = normalizarFotos(movimiento?.fotos)
 
   for (const lado of ['frente', 'lateralIzq', 'lateralDer', 'trasero', 'kilometraje']) {
@@ -56,9 +68,14 @@ async function escribirAdjuntos(libro, hoja, fila, columnas, movimiento, presupu
   const colVideo = columnas.findIndex((c) => c.key === 'video')
   celdaAdjunto(hoja, fila, colVideo, movimiento?.video, 'Ver video')
 
+  // Un hipervínculo de Excel solo puede apuntar a una URL — si hay varias
+  // fotos "otras" (formato viejo, sin ángulo), el enlace y la miniatura son
+  // de la primera nada más. La etiqueta lo dice explícitamente para no dar a
+  // entender que el clic muestra las demás.
   const colOtras = columnas.findIndex((c) => c.key === 'otras')
   if (fotos.otras.length > 0) {
-    celdaAdjunto(hoja, fila, colOtras, fotos.otras[0], `Ver (${fotos.otras.length})`)
+    const etiqueta = fotos.otras.length === 1 ? 'Ver foto' : `Foto 1 de ${fotos.otras.length}`
+    celdaAdjunto(hoja, fila, colOtras, fotos.otras[0], etiqueta)
     await insertarMiniatura(libro, hoja, fila, colOtras, fotos.otras[0], presupuesto)
   } else {
     celdaAdjunto(hoja, fila, colOtras, null)
