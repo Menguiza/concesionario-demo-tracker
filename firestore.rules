@@ -46,7 +46,11 @@ service cloud.firestore {
     }
 
     match /colaEquipo/{id} {
-      allow read: if esAdmin() || esAnfitriona();
+      // Lectura abierta a cualquier autenticado: comercial/directivo la usan
+      // para ver su propio estado de fila en el dashboard de inicio. Sigue
+      // siendo solo dato operativo (turnos), y la escritura sigue exclusiva
+      // de quien gestiona la cola.
+      allow read: if autenticado();
       allow write: if esAdmin() || esAnfitriona();
     }
 

@@ -18,8 +18,11 @@ export default defineConfig({
         scope: '/concesionario-demo-tracker/',
         display: 'standalone',
         background_color: '#ffffff',
-        theme_color: '#1f2937',
-        // TODO: agregar icons (192x192 / 512x512) cuando haya branding definido.
+        theme_color: '#111827',
+        icons: [
+          { src: 'favicon.svg', sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
+          { src: 'favicon.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any' },
+        ],
       },
     }),
   ],

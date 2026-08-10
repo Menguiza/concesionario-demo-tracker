@@ -1,8 +1,9 @@
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from './context/AuthContext'
+import { HashRouter, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
+import HomePage from './pages/HomePage'
 import AnfitrionaPage from './pages/AnfitrionaPage'
 import VehiculosPage from './pages/VehiculosPage'
 import ComercialPage from './pages/ComercialPage'
@@ -10,14 +11,6 @@ import AdminPage from './pages/AdminPage'
 import ReservasPage from './pages/ReservasPage'
 import ComercialesPage from './pages/ComercialesPage'
 import CambiarPasswordPage from './pages/CambiarPasswordPage'
-
-function InicioRedirect() {
-  const { rol } = useAuth()
-  if (rol === 'comercial') return <Navigate to="/comercial" replace />
-  if (rol === 'admin' || rol === 'anfitriona') return <Navigate to="/anfitriona" replace />
-  if (rol === 'directivo') return <Navigate to="/vehiculos" replace />
-  return null
-}
 
 export default function App() {
   return (
@@ -32,7 +25,7 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/" element={<InicioRedirect />} />
+            <Route path="/" element={<HomePage />} />
             <Route path="/cambiar-password" element={<CambiarPasswordPage />} />
             <Route
               path="/anfitriona"
