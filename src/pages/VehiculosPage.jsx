@@ -3,7 +3,7 @@ import { suscribirVehiculos, crearVehiculo } from '../features/vehiculos/vehicul
 import { registrarMovimiento } from '../features/movimientos/movimientosApi'
 import { verificarDisponibilidad, crearReserva } from '../features/reservas/reservasApi'
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
-import { estaBloqueadoPorPicoYPlaca } from '../lib/picoYPlaca'
+import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { useAuth } from '../context/AuthContext'
 
@@ -123,15 +123,17 @@ function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
   )
 }
 
-function ChequeoDisponibilidad({ vehiculo }) {
+function ChequeoDisponibilidad({ vehiculo, picoYPlacaConfig }) {
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const [resultado, setResultado] = useState(null)
+  const [diasPicoYPlaca, setDiasPicoYPlaca] = useState([])
 
   async function handleChequear() {
     if (!desde || !hasta) return
     const r = await verificarDisponibilidad(vehiculo.id, new Date(desde), new Date(hasta))
     setResultado(r)
+    setDiasPicoYPlaca(diasBloqueadosPorPicoYPlacaEnRango(vehiculo, picoYPlacaConfig, new Date(desde), new Date(hasta)))
   }
 
   async function handleReservar() {
@@ -143,7 +145,10 @@ function ChequeoDisponibilidad({ vehiculo }) {
       motivo: 'Reserva manual',
     })
     setResultado(null)
+    setDiasPicoYPlaca([])
   }
+
+  const libreDeTodo = resultado?.disponible && diasPicoYPlaca.length === 0
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
@@ -152,12 +157,16 @@ function ChequeoDisponibilidad({ vehiculo }) {
       <button type="button" onClick={handleChequear} className="text-gray-500 underline">
         Consultar disponibilidad
       </button>
-      {resultado && (
-        <span className={resultado.disponible ? 'text-emerald-700' : 'text-red-700'}>
-          {resultado.disponible ? 'Disponible en ese rango' : `Ocupado (${resultado.conflictos.length} reserva(s))`}
+      {resultado && !resultado.disponible && (
+        <span className="text-red-700">Ocupado ({resultado.conflictos.length} reserva(s) que se cruzan)</span>
+      )}
+      {resultado?.disponible && diasPicoYPlaca.length > 0 && (
+        <span className="text-red-700">
+          Pico y placa el {diasPicoYPlaca.map((d) => d.toLocaleDateString('es-CO')).join(', ')}
         </span>
       )}
-      {resultado?.disponible && (
+      {libreDeTodo && <span className="text-emerald-700">Disponible en ese rango</span>}
+      {libreDeTodo && (
         <button type="button" onClick={handleReservar} className="text-gray-900 underline">
           Reservar
         </button>
@@ -229,7 +238,7 @@ export default function VehiculosPage() {
             {expandido === v.id && (
               <FormularioMovimiento vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} onCerrar={() => setExpandido(null)} />
             )}
-            {mostrandoDisponibilidad === v.id && <ChequeoDisponibilidad vehiculo={v} />}
+            {mostrandoDisponibilidad === v.id && <ChequeoDisponibilidad vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} />}
           </li>
         ))}
       </ul>

@@ -223,6 +223,17 @@ export default function AnfitrionaPage() {
         </div>
       )}
 
+      <div className="bg-gray-100 rounded-lg p-3 text-xs text-gray-600 space-y-1">
+        <p>
+          <strong>Llegada:</strong> márcala una sola vez, cuando el comercial llegue a trabajar hoy. Sirve para desempatar el orden si más
+          tarde reinicias la semana.
+        </p>
+        <p>
+          <strong>Ocupado / Disponible:</strong> cámbialo cada vez que el comercial empiece o termine de atender a un cliente, para que la
+          asignación automática lo salte mientras esté ocupado.
+        </p>
+      </div>
+
       <ol className="space-y-2">
         {(cola?.orden ?? []).map((id, i) => {
           const comercial = comercialesPorId[id]
@@ -230,28 +241,35 @@ export default function AnfitrionaPage() {
           const enHorario = comercial ? estaEnHorario(comercial.horarioSemanal) : false
           const llegada = cola.llegadas?.[id]
           return (
-            <li
-              key={id}
-              className="flex flex-wrap items-center justify-between gap-2 bg-white rounded-lg border border-gray-200 px-3 py-2"
-            >
-              <span className="text-sm text-gray-900">
-                {i + 1}. {comercial?.nombre ?? id} {!enHorario && <span className="text-gray-400">(fuera de horario)</span>}
-              </span>
-              <div className="flex items-center gap-2">
-                {llegada ? (
-                  <span className="text-xs text-gray-500">
-                    Llegó {new Date(llegada).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                ) : (
-                  <button onClick={() => handleMarcarLlegada(id)} className="text-xs text-gray-500 underline">
-                    Marcar llegada
+            <li key={id} className="bg-white rounded-lg border border-gray-200 px-3 py-3 space-y-2">
+              <p className="text-sm font-medium text-gray-900">
+                {i + 1}. {comercial?.nombre ?? id}
+              </p>
+              {!enHorario && <p className="text-xs text-gray-400">Fuera de su horario de hoy</p>}
+
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-gray-500">
+                  {llegada
+                    ? `Llegó hoy a las ${new Date(llegada).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`
+                    : 'Todavía no ha marcado llegada hoy'}
+                </span>
+                {!llegada && (
+                  <button
+                    onClick={() => handleMarcarLlegada(id)}
+                    className="text-xs rounded-lg border border-gray-300 px-2 py-1 text-gray-700 shrink-0"
+                  >
+                    Ya llegó, registrar
                   </button>
                 )}
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-gray-500">{ocupado ? 'Atendiendo a un cliente ahora' : 'Puede recibir un cliente'}</span>
                 <button
                   onClick={() => toggleOcupado(id)}
-                  className={`text-xs rounded-full px-3 py-1 ${ocupado ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}
+                  className={`text-xs rounded-full px-3 py-1 shrink-0 ${ocupado ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}
                 >
-                  {ocupado ? 'Ocupado' : 'Disponible'}
+                  {ocupado ? 'Marcar libre' : 'Marcar ocupado'}
                 </button>
               </div>
             </li>
