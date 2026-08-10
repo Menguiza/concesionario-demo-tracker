@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import { suscribirClientesDeComercial, marcarDescarte, revertirDescarte } from '../features/clientes/clientesApi'
+import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
 import { useAuth } from '../context/AuthContext'
-
-const MOTIVOS_DESCARTE = ['Se equivocó de lugar', 'No tiene dinero', 'Solo estaba curioseando', 'Otro']
 
 export default function ComercialPage() {
   const { firebaseUser } = useAuth()
   const [clientes, setClientes] = useState([])
   const [editando, setEditando] = useState(null)
   const [motivo, setMotivo] = useState(MOTIVOS_DESCARTE[0])
+  const [mostrarDescartados, setMostrarDescartados] = useState(false)
 
   useEffect(() => {
     if (!firebaseUser) return
@@ -20,11 +20,18 @@ export default function ComercialPage() {
     setEditando(null)
   }
 
-  const ordenados = [...clientes].sort((a, b) => (b.fechaHora?.seconds ?? 0) - (a.fechaHora?.seconds ?? 0))
+  const ordenados = [...clientes]
+    .filter((c) => mostrarDescartados || c.efectivo)
+    .sort((a, b) => (b.fechaHora?.seconds ?? 0) - (a.fechaHora?.seconds ?? 0))
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-semibold text-gray-900">Mis clientes</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-gray-900">Mis clientes</h1>
+        <button onClick={() => setMostrarDescartados((v) => !v)} className="text-xs text-gray-500 underline">
+          {mostrarDescartados ? 'Ocultar descartados' : 'Ver descartados'}
+        </button>
+      </div>
       <ul className="space-y-2">
         {ordenados.map((c) => (
           <li key={c.id} className="bg-white rounded-lg border border-gray-200 p-3">

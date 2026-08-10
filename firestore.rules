@@ -39,8 +39,8 @@ service cloud.firestore {
     }
 
     match /colaEquipo/{id} {
-      allow read: if autenticado();
-      allow write: if autenticado();
+      allow read: if esAdmin() || esAnfitriona();
+      allow write: if esAdmin() || esAnfitriona();
     }
 
     match /clientes/{id} {

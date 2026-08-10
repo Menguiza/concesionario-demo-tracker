@@ -6,13 +6,15 @@ import {
   inicializarColaSemana,
   actualizarOrden,
   marcarOcupado,
+  establecerClienteActual,
   registrarLlegada,
 } from '../features/cola/colaApi'
-import { registrarCliente, contarClientesEfectivosEnRango } from '../features/clientes/clientesApi'
+import { registrarCliente, marcarDescarte, contarClientesEfectivosEnRango } from '../features/clientes/clientesApi'
 import { construirOrdenInicial, elegirYRotar, asignarComercialEspecifico, pasarSinConsumirCola } from '../lib/queue'
 import { estaEnHorario } from '../lib/horario'
 import { rangoSemanaPasada } from '../lib/fechas'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
+import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
 
 function hoyYYYYMMDD() {
   return new Date().toISOString().slice(0, 10)
@@ -116,6 +118,12 @@ export default function AnfitrionaPage() {
     )
   }
 
+  async function ocuparConCliente(comercialId, clienteId) {
+    const ocupadosActuales = cola.ocupados ?? []
+    await marcarOcupado(equipoActivoId, comercialId, true, ocupadosActuales)
+    await establecerClienteActual(equipoActivoId, comercialId, clienteId, cola.clienteActual ?? {})
+  }
+
   async function handleAsignar(e) {
     e.preventDefault()
     setMensaje('')
@@ -128,7 +136,7 @@ export default function AnfitrionaPage() {
             ? asignarComercialEspecifico(cola.orden, comercialEspecificoId)
             : pasarSinConsumirCola(cola.orden)
 
-        await registrarCliente({
+        const clienteRef = await registrarCliente({
           nombre: nombreCliente,
           telefono: telefonoCliente,
           tipo: tipoCliente,
@@ -136,6 +144,7 @@ export default function AnfitrionaPage() {
           comercialSolicitado: true,
         })
         if (tipoCliente === 'nuevo') await actualizarOrden(equipoActivoId, nuevoOrden)
+        await ocuparConCliente(comercialEspecificoId, clienteRef.id)
         setMensaje(`Cliente asignado a ${comercialesPorId[comercialEspecificoId]?.nombre ?? 'comercial'}.`)
       } else {
         const idsOcupados = new Set(cola.ocupados ?? [])
@@ -144,7 +153,7 @@ export default function AnfitrionaPage() {
           setMensaje('No hay comerciales disponibles en este momento.')
           return
         }
-        await registrarCliente({
+        const clienteRef = await registrarCliente({
           nombre: nombreCliente,
           telefono: telefonoCliente,
           tipo: tipoCliente,
@@ -152,6 +161,7 @@ export default function AnfitrionaPage() {
           comercialSolicitado: false,
         })
         await actualizarOrden(equipoActivoId, nuevoOrden)
+        await ocuparConCliente(elegido, clienteRef.id)
         setMensaje(`Cliente asignado a ${comercialesPorId[elegido]?.nombre ?? 'comercial'}.`)
       }
     } catch (err) {
@@ -166,10 +176,34 @@ export default function AnfitrionaPage() {
     setComercialEspecificoId('')
   }
 
+  const [resolviendoId, setResolviendoId] = useState(null)
+  const [mostrandoMotivoId, setMostrandoMotivoId] = useState(null)
+  const [motivoSeleccionado, setMotivoSeleccionado] = useState(MOTIVOS_DESCARTE[0])
+
   async function toggleOcupado(comercialId) {
     const ocupadosActuales = cola.ocupados ?? []
     const yaOcupado = ocupadosActuales.includes(comercialId)
+    const clienteActualId = cola.clienteActual?.[comercialId]
+
+    if (yaOcupado && clienteActualId) {
+      setResolviendoId(comercialId)
+      setMostrandoMotivoId(null)
+      return
+    }
+
     await marcarOcupado(equipoActivoId, comercialId, !yaOcupado, ocupadosActuales)
+  }
+
+  async function resolverYLiberar(comercialId, esEfectivo) {
+    const clienteActualId = cola.clienteActual?.[comercialId]
+    if (!esEfectivo) {
+      await marcarDescarte(clienteActualId, motivoSeleccionado)
+    }
+    await marcarOcupado(equipoActivoId, comercialId, false, cola.ocupados ?? [])
+    await establecerClienteActual(equipoActivoId, comercialId, null, cola.clienteActual ?? {})
+    setResolviendoId(null)
+    setMostrandoMotivoId(null)
+    setMotivoSeleccionado(MOTIVOS_DESCARTE[0])
   }
 
   async function handleMarcarLlegada(comercialId) {
@@ -251,8 +285,9 @@ export default function AnfitrionaPage() {
           tarde reinicias la semana.
         </p>
         <p>
-          <strong>Ocupado / Disponible:</strong> cámbialo cada vez que el comercial empiece o termine de atender a un cliente, para que la
-          asignación automática lo salte mientras esté ocupado.
+          <strong>Ocupado / Disponible:</strong> se marca solo cuando le asignas un cliente. Para liberarlo vas a tener que decir si ese
+          cliente fue efectivo o no. Si necesitas marcarlo ocupado por otro motivo (ausente, etc.) puedes hacerlo manual, y ahí sí se libera
+          directo, sin preguntar nada.
         </p>
       </div>
 
@@ -285,15 +320,56 @@ export default function AnfitrionaPage() {
                 )}
               </div>
 
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-gray-500">{ocupado ? 'Atendiendo a un cliente ahora' : 'Puede recibir un cliente'}</span>
-                <button
-                  onClick={() => toggleOcupado(id)}
-                  className={`text-xs rounded-full px-3 py-1 shrink-0 ${ocupado ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}
-                >
-                  {ocupado ? 'Marcar libre' : 'Marcar ocupado'}
-                </button>
-              </div>
+              {resolviendoId === id ? (
+                <div className="bg-gray-50 rounded-lg p-2 space-y-2">
+                  <p className="text-xs text-gray-700">¿El cliente que atendió fue efectivo?</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => resolverYLiberar(id, true)}
+                      className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-3 py-1"
+                    >
+                      Sí, efectivo
+                    </button>
+                    <button
+                      onClick={() => setMostrandoMotivoId(id)}
+                      className="text-xs rounded-full bg-gray-200 text-gray-700 px-3 py-1"
+                    >
+                      No fue efectivo
+                    </button>
+                  </div>
+                  {mostrandoMotivoId === id && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={motivoSeleccionado}
+                        onChange={(e) => setMotivoSeleccionado(e.target.value)}
+                        className="text-xs rounded-lg border border-gray-300 px-2 py-1"
+                      >
+                        {MOTIVOS_DESCARTE.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                      <button onClick={() => resolverYLiberar(id, false)} className="text-xs text-red-700 underline">
+                        Confirmar y liberar
+                      </button>
+                    </div>
+                  )}
+                  <button onClick={() => setResolviendoId(null)} className="text-xs text-gray-400 underline">
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-gray-500">{ocupado ? 'Atendiendo a un cliente ahora' : 'Puede recibir un cliente'}</span>
+                  <button
+                    onClick={() => toggleOcupado(id)}
+                    className={`text-xs rounded-full px-3 py-1 shrink-0 ${ocupado ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}
+                  >
+                    {ocupado ? 'Marcar libre' : 'Marcar ocupado'}
+                  </button>
+                </div>
+              )}
             </li>
           )
         })}
