@@ -8,6 +8,7 @@ import VehiculosPage from './pages/VehiculosPage'
 import ComercialPage from './pages/ComercialPage'
 import AdminPage from './pages/AdminPage'
 import ReservasPage from './pages/ReservasPage'
+import ComercialesPage from './pages/ComercialesPage'
 
 function InicioRedirect() {
   const { rol } = useAuth()
@@ -41,6 +42,14 @@ export default function App() {
             />
             <Route path="/vehiculos" element={<VehiculosPage />} />
             <Route path="/reservas" element={<ReservasPage />} />
+            <Route
+              path="/comerciales"
+              element={
+                <ProtectedRoute roles={['admin', 'anfitriona', 'directivo']}>
+                  <ComercialesPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/comercial"
               element={

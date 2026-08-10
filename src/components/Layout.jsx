@@ -9,11 +9,13 @@ const LINKS_POR_ROL = {
     { to: '/vehiculos', label: 'Vehículos' },
     { to: '/reservas', label: 'Reservas' },
     { to: '/anfitriona', label: 'Cola' },
+    { to: '/comerciales', label: 'Comerciales' },
   ],
   anfitriona: [
     { to: '/anfitriona', label: 'Cola' },
     { to: '/vehiculos', label: 'Vehículos' },
     { to: '/reservas', label: 'Reservas' },
+    { to: '/comerciales', label: 'Comerciales' },
   ],
   comercial: [
     { to: '/comercial', label: 'Mis clientes' },
@@ -23,6 +25,7 @@ const LINKS_POR_ROL = {
   directivo: [
     { to: '/vehiculos', label: 'Vehículos' },
     { to: '/reservas', label: 'Reservas' },
+    { to: '/comerciales', label: 'Comerciales' },
   ],
 }
 

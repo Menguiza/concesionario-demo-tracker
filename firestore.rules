@@ -14,6 +14,9 @@ service cloud.firestore {
     function esDirectivo() {
       return request.auth != null && rolDe(request.auth.uid) == 'directivo';
     }
+    function esComercial() {
+      return request.auth != null && rolDe(request.auth.uid) == 'comercial';
+    }
     function autenticado() {
       return request.auth != null;
     }
@@ -46,7 +49,7 @@ service cloud.firestore {
     match /clientes/{id} {
       allow read: if autenticado();
       allow create: if esAdmin() || esAnfitriona();
-      allow update: if autenticado();
+      allow update: if esAdmin() || esAnfitriona() || (esComercial() && resource.data.comercialAsignadoId == request.auth.uid);
     }
 
     match /vehiculos/{id} {
