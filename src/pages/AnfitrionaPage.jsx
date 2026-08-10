@@ -14,6 +14,7 @@ import { estaEnHorario } from '../lib/horario'
 import { rangoSemanaPasada, fechaLocalYYYYMMDD } from '../lib/fechas'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
+import { enlaceTel } from '../lib/telefono'
 import { INPUT } from '../lib/estilos'
 import Tarjeta from '../components/Tarjeta'
 import Boton from '../components/Boton'
@@ -372,7 +373,7 @@ export default function AnfitrionaPage() {
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{comercial?.nombre ?? id}</p>
                     {comercial?.telefono && (
-                      <a href={`tel:${comercial.telefono}`} className="text-xs text-gray-500 hover:text-gray-900 transition-colors">
+                      <a href={enlaceTel(comercial.telefono)} className="text-xs text-gray-500 hover:text-gray-900 transition-colors">
                         {comercial.telefono}
                       </a>
                     )}
