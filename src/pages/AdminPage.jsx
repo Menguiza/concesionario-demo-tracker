@@ -154,14 +154,16 @@ function SeccionUsuarios({ equipos }) {
       <h2 className="text-sm font-semibold text-gray-900">Crear cuenta de staff</h2>
       <form onSubmit={handleCrear} className="space-y-2" autoComplete="off">
         <input required placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-        <input
-          required
-          type="tel"
-          placeholder="Número de contacto"
-          value={telefono}
-          onChange={(e) => setTelefono(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-        />
+        {rol !== 'admin' && (
+          <input
+            required
+            type="tel"
+            placeholder="Número de contacto"
+            value={telefono}
+            onChange={(e) => setTelefono(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+        )}
         <input
           required
           type="email"
@@ -283,23 +285,25 @@ function FilaUsuarioExistente({ usuario, equipos }) {
         </label>
       </div>
 
-      <div className="flex items-center gap-2">
-        <input
-          type="tel"
-          placeholder="Número de contacto"
-          value={telefono}
-          onChange={(e) => setTelefono(e.target.value)}
-          className="flex-1 text-xs rounded-lg border border-gray-300 px-2 py-1"
-        />
-        <button
-          onClick={handleGuardarTelefono}
-          disabled={guardandoTelefono}
-          className="text-xs rounded-lg bg-gray-900 text-white px-2 py-1 disabled:opacity-50 shrink-0"
-        >
-          {guardandoTelefono ? 'Guardando…' : 'Guardar'}
-        </button>
-        {mensajeTelefono && <span className="text-xs text-gray-500 shrink-0">{mensajeTelefono}</span>}
-      </div>
+      {usuario.rol !== 'admin' && (
+        <div className="flex items-center gap-2">
+          <input
+            type="tel"
+            placeholder="Número de contacto"
+            value={telefono}
+            onChange={(e) => setTelefono(e.target.value)}
+            className="flex-1 text-xs rounded-lg border border-gray-300 px-2 py-1"
+          />
+          <button
+            onClick={handleGuardarTelefono}
+            disabled={guardandoTelefono}
+            className="text-xs rounded-lg bg-gray-900 text-white px-2 py-1 disabled:opacity-50 shrink-0"
+          >
+            {guardandoTelefono ? 'Guardando…' : 'Guardar'}
+          </button>
+          {mensajeTelefono && <span className="text-xs text-gray-500 shrink-0">{mensajeTelefono}</span>}
+        </div>
+      )}
 
       {esComercial && expandido && (
         <div className="mt-2 pl-4 space-y-2">

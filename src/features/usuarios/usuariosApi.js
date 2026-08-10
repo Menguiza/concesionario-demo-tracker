@@ -1,9 +1,13 @@
 import { initializeApp, deleteApp } from 'firebase/app'
-import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
+import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth'
 import { collection, doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore'
-import { db, app } from '../../firebase/config'
+import { db, app, auth } from '../../firebase/config'
 import { agregarComercialAEquipo } from '../equipos/equiposApi'
 import { fechaLocalYYYYMMDD } from '../../lib/fechas'
+
+function urlDeRetornoAlLogin() {
+  return { url: `${window.location.origin}${window.location.pathname}#/login` }
+}
 
 export function suscribirUsuarios(callback) {
   return onSnapshot(collection(db, 'usuarios'), (snap) => {
@@ -16,6 +20,13 @@ export function suscribirUsuarios(callback) {
 // equipo vive solo en equipos.miembros (un comercial puede estar en varios);
 // aquí no se guarda ningún equipoId en el usuario para evitar dos fuentes
 // de verdad desincronizadas.
+//
+// No se manda la contraseña temporal por correo (nunca se debe mandar una
+// contraseña en texto plano) — en vez de eso, se dispara el correo de
+// "restablecer contraseña" propio de Firebase apenas se crea la cuenta, para
+// que la persona pueda poner la suya. La contraseña temporal sigue sirviendo
+// para entrar de una si hace falta usarla el mismo día, antes de que revise
+// el correo.
 export async function crearUsuarioStaff({ email, password, nombre, telefono, rol, equipoId, horarioSemanal }) {
   const secondaryApp = initializeApp(app.options, 'secondary-' + Date.now())
   const secondaryAuth = getAuth(secondaryApp)
@@ -23,7 +34,7 @@ export async function crearUsuarioStaff({ email, password, nombre, telefono, rol
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password)
     await setDoc(doc(db, 'usuarios', cred.user.uid), {
       nombre,
-      telefono,
+      telefono: telefono || null,
       rol,
       horarioSemanal: horarioSemanal ?? null,
       activo: true,
@@ -31,11 +42,16 @@ export async function crearUsuarioStaff({ email, password, nombre, telefono, rol
     if (equipoId) {
       await agregarComercialAEquipo(equipoId, cred.user.uid)
     }
+    await sendPasswordResetEmail(secondaryAuth, email, urlDeRetornoAlLogin())
     await signOut(secondaryAuth)
     return cred.user.uid
   } finally {
     await deleteApp(secondaryApp)
   }
+}
+
+export function enviarCorreoRestablecerPassword(email) {
+  return sendPasswordResetEmail(auth, email, urlDeRetornoAlLogin())
 }
 
 export function actualizarUsuario(uid, cambios) {
