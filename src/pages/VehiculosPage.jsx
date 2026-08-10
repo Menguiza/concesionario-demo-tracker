@@ -18,36 +18,64 @@ function EstadoBadge({ vehiculo, picoYPlacaConfig }) {
 }
 
 function ConsultaPicoYPlacaRapida({ vehiculo, picoYPlacaConfig }) {
-  const [fecha, setFecha] = useState(null)
+  const [desde, setDesde] = useState(null)
+  const [hasta, setHasta] = useState(null)
+  const [mostrarRango, setMostrarRango] = useState(false)
 
   const hoy = new Date()
   const manana = new Date(hoy)
   manana.setDate(hoy.getDate() + 1)
 
-  const bloqueado = fecha ? diasBloqueadosPorPicoYPlacaEnRango(vehiculo, picoYPlacaConfig, fecha, fecha).length > 0 : null
+  function chequearUnDia(dia) {
+    setDesde(dia)
+    setHasta(dia)
+    setMostrarRango(false)
+  }
+
+  const diasBloqueados = desde && hasta ? diasBloqueadosPorPicoYPlacaEnRango(vehiculo, picoYPlacaConfig, desde, hasta) : null
+  const esUnSoloDia = desde && hasta && desde.getTime() === hasta.getTime()
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-      <span className="text-gray-400">¿Pico y placa?</span>
-      <button onClick={() => setFecha(hoy)} className="rounded-full border border-gray-300 px-2 py-1 text-gray-600">
-        Hoy
-      </button>
-      <button onClick={() => setFecha(manana)} className="rounded-full border border-gray-300 px-2 py-1 text-gray-600">
-        Mañana
-      </button>
-      <input
-        type="date"
-        onChange={(e) => e.target.value && setFecha(parseFechaLocal(e.target.value))}
-        className="rounded border border-gray-300 px-1 py-0.5 text-gray-600"
-      />
-      {fecha && (
-        <span className={`font-medium ${bloqueado ? 'text-red-700' : 'text-emerald-700'}`}>
+    <div className="mt-2 space-y-1 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-gray-400">¿Pico y placa?</span>
+        <button onClick={() => chequearUnDia(hoy)} className="rounded-full border border-gray-300 px-2 py-1 text-gray-600">
+          Hoy
+        </button>
+        <button onClick={() => chequearUnDia(manana)} className="rounded-full border border-gray-300 px-2 py-1 text-gray-600">
+          Mañana
+        </button>
+        <button onClick={() => setMostrarRango((v) => !v)} className="rounded-full border border-gray-300 px-2 py-1 text-gray-600">
+          Varios días
+        </button>
+      </div>
+
+      {mostrarRango && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="date"
+            onChange={(e) => e.target.value && setDesde(parseFechaLocal(e.target.value))}
+            className="rounded border border-gray-300 px-1 py-0.5 text-gray-600"
+          />
+          <span className="text-gray-400">hasta</span>
+          <input
+            type="date"
+            onChange={(e) => e.target.value && setHasta(parseFechaLocal(e.target.value))}
+            className="rounded border border-gray-300 px-1 py-0.5 text-gray-600"
+          />
+        </div>
+      )}
+
+      {diasBloqueados !== null && (
+        <p className={`font-medium ${diasBloqueados.length > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
           {vehiculo.esElectricoHibrido
             ? 'Exento (eléctrico/híbrido)'
-            : bloqueado
-              ? `Sí, bloqueado el ${fecha.toLocaleDateString('es-CO')}`
-              : `Libre el ${fecha.toLocaleDateString('es-CO')}`}
-        </span>
+            : diasBloqueados.length > 0
+              ? `Pico y placa: ${diasBloqueados.map((d) => d.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })).join(', ')}`
+              : esUnSoloDia
+                ? `Libre el ${desde.toLocaleDateString('es-CO')}`
+                : `Libre todo el rango (${desde.toLocaleDateString('es-CO')} – ${hasta.toLocaleDateString('es-CO')})`}
+        </p>
       )}
     </div>
   )

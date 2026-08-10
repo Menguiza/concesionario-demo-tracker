@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { suscribirVehiculos } from '../features/vehiculos/vehiculosApi'
 import { suscribirReservas, crearReserva, cancelarReserva, verificarDisponibilidad } from '../features/reservas/reservasApi'
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
+import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
+import { suscribirTodosLosClientes } from '../features/clientes/clientesApi'
 import { diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 
@@ -82,12 +84,18 @@ function CalendarioReservas({ reservas, vehiculosPorId }) {
             <button
               key={i}
               onClick={() => setDiaSeleccionado(d)}
-              className={`aspect-square rounded-lg text-xs flex flex-col items-center justify-center border ${
-                diaSeleccionado === d ? 'border-gray-900' : 'border-gray-100'
+              className={`aspect-square rounded-lg text-xs flex flex-col items-center justify-center gap-0.5 border p-0.5 ${
+                diaSeleccionado === d ? 'border-gray-900 bg-gray-50' : reservasPorDia[d] ? 'border-amber-200 bg-amber-50' : 'border-gray-100'
               } ${esMesActual && d === hoy.getDate() ? 'font-semibold' : ''}`}
             >
               <span>{d}</span>
-              {reservasPorDia[d] && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-0.5" />}
+              {reservasPorDia[d] && (
+                <span className="text-[9px] leading-none text-amber-800 truncate max-w-full">
+                  {reservasPorDia[d].length === 1
+                    ? vehiculosPorId[reservasPorDia[d][0].vehiculoId]?.placa
+                    : `${reservasPorDia[d].length} autos`}
+                </span>
+              )}
             </button>
           )
         )}
@@ -106,7 +114,8 @@ function CalendarioReservas({ reservas, vehiculosPorId }) {
           {(reservasPorDia[diaSeleccionado] ?? []).map((r) => (
             <div key={r.id} className="text-xs text-gray-600">
               <span className="font-medium text-gray-900">{vehiculosPorId[r.vehiculoId]?.placa ?? '—'}</span>{' '}
-              {formatoHora(r.fechaInicio)}–{formatoHora(r.fechaFin)} · {r.solicitadoPor?.nombre} ({r.motivo})
+              {formatoHora(r.fechaInicio)}–{formatoHora(r.fechaFin)} · {r.solicitadoPor?.nombre}
+              {r.motivo && ` (${r.motivo})`}
             </div>
           ))}
         </div>
@@ -119,13 +128,16 @@ export default function ReservasPage() {
   const [vehiculos, setVehiculos] = useState([])
   const [reservas, setReservas] = useState([])
   const [picoYPlacaConfig, setPicoYPlacaConfig] = useState(null)
+  const [comerciales, setComerciales] = useState([])
+  const [clientes, setClientes] = useState([])
   const [mostrarCanceladas, setMostrarCanceladas] = useState(false)
 
   const [vehiculoId, setVehiculoId] = useState('')
   const [inicio, setInicio] = useState('')
   const [fin, setFin] = useState('')
   const [quienTipo, setQuienTipo] = useState('comercial')
-  const [quienNombre, setQuienNombre] = useState('')
+  const [quienSeleccion, setQuienSeleccion] = useState('')
+  const [quienNombreLibre, setQuienNombreLibre] = useState('')
   const [motivo, setMotivo] = useState('')
   const [mensaje, setMensaje] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -134,14 +146,30 @@ export default function ReservasPage() {
   useEffect(() => suscribirVehiculos(setVehiculos), [])
   useEffect(() => suscribirReservas(setReservas), [])
   useEffect(() => suscribirPicoYPlacaConfig(setPicoYPlacaConfig), [])
+  useEffect(() => suscribirUsuarios((todos) => setComerciales(todos.filter((u) => u.rol === 'comercial'))), [])
+  useEffect(() => suscribirTodosLosClientes(setClientes), [])
 
   const vehiculosPorId = useMemo(() => Object.fromEntries(vehiculos.map((v) => [v.id, v])), [vehiculos])
   const reservasVisibles = reservas.filter((r) => mostrarCanceladas || r.estado === 'activa')
+  const listaPersonas = quienTipo === 'comercial' ? comerciales : quienTipo === 'cliente' ? clientes : []
+
+  function handleCambiarQuienTipo(nuevoTipo) {
+    setQuienTipo(nuevoTipo)
+    setQuienSeleccion('')
+    setQuienNombreLibre('')
+  }
+
+  function nombreQuienReserva() {
+    if (quienTipo === 'directivo') return quienNombreLibre.trim()
+    if (quienSeleccion === 'otro') return quienNombreLibre.trim()
+    return listaPersonas.find((p) => p.id === quienSeleccion)?.nombre ?? ''
+  }
 
   async function handleCrear(e) {
     e.preventDefault()
     setMensaje('')
-    if (!vehiculoId || !inicio || !fin) return
+    const quienNombre = nombreQuienReserva()
+    if (!vehiculoId || !inicio || !fin || !quienNombre) return
 
     const fechaInicio = new Date(inicio)
     const fechaFin = new Date(fin)
@@ -176,13 +204,14 @@ export default function ReservasPage() {
         fechaInicio,
         fechaFin,
         solicitadoPor: { tipo: quienTipo, nombre: quienNombre },
-        motivo,
+        motivo: motivo.trim() || null,
       })
       setMensaje('Reserva creada.')
       setVehiculoId('')
       setInicio('')
       setFin('')
-      setQuienNombre('')
+      setQuienSeleccion('')
+      setQuienNombreLibre('')
       setMotivo('')
     } catch (err) {
       setMensaje(mensajeErrorAmigable(err))
@@ -237,23 +266,55 @@ export default function ReservasPage() {
             />
           </div>
         </div>
-        <div className="flex gap-2">
-          <select value={quienTipo} onChange={(e) => setQuienTipo(e.target.value)} className="rounded-lg border border-gray-300 px-2 py-2 text-sm">
+        <div className="space-y-2">
+          <select
+            value={quienTipo}
+            onChange={(e) => handleCambiarQuienTipo(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          >
             <option value="comercial">Comercial</option>
-            <option value="directivo">Directivo</option>
             <option value="cliente">Cliente</option>
+            <option value="directivo">Directivo</option>
           </select>
-          <input
-            required
-            placeholder="Nombre de quién reserva"
-            value={quienNombre}
-            onChange={(e) => setQuienNombre(e.target.value)}
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
+
+          {quienTipo === 'directivo' ? (
+            <input
+              required
+              placeholder="Nombre del directivo"
+              value={quienNombreLibre}
+              onChange={(e) => setQuienNombreLibre(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          ) : (
+            <>
+              <select
+                required
+                value={quienSeleccion}
+                onChange={(e) => setQuienSeleccion(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="">Selecciona {quienTipo === 'comercial' ? 'comercial' : 'cliente'}</option>
+                {listaPersonas.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+                <option value="otro">Otro (no está en la lista)</option>
+              </select>
+              {quienSeleccion === 'otro' && (
+                <input
+                  required
+                  placeholder="Nombre"
+                  value={quienNombreLibre}
+                  onChange={(e) => setQuienNombreLibre(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              )}
+            </>
+          )}
         </div>
         <input
-          required
-          placeholder="Motivo"
+          placeholder="Motivo (opcional)"
           value={motivo}
           onChange={(e) => setMotivo(e.target.value)}
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
@@ -307,7 +368,8 @@ export default function ReservasPage() {
                     {formatoFechaHora(r.fechaInicio)} → {formatoFechaHora(r.fechaFin)}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {r.solicitadoPor?.tipo}: {r.solicitadoPor?.nombre} · {r.motivo}
+                    {r.solicitadoPor?.tipo}: {r.solicitadoPor?.nombre}
+                    {r.motivo && ` · ${r.motivo}`}
                   </p>
                   {r.estado === 'activa' && (
                     <button onClick={() => handleCancelar(r.id)} className="text-xs text-red-700 underline">
