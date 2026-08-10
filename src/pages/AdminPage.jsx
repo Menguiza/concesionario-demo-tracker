@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react'
 import { suscribirEquipos, crearEquipo, actualizarMiembrosEquipo } from '../features/equipos/equiposApi'
-import { suscribirUsuarios, crearUsuarioStaff } from '../features/usuarios/usuariosApi'
+import { suscribirUsuarios, crearUsuarioStaff, actualizarUsuario } from '../features/usuarios/usuariosApi'
 import { suscribirPicoYPlacaConfig, guardarPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { DIAS_SEMANA } from '../lib/horario'
+import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 
 function horarioVacio() {
   return Object.fromEntries(DIAS_SEMANA.map((d) => [d, { activo: false, inicio: '08:00', fin: '18:00' }]))
+}
+
+function tieneAlgunDiaActivo(horario) {
+  return Object.values(horario ?? {}).some((bloque) => bloque?.activo)
 }
 
 function EditorHorario({ horario, onChange }) {
@@ -37,6 +42,11 @@ function EditorHorario({ horario, onChange }) {
           />
         </div>
       ))}
+      {!tieneAlgunDiaActivo(horario) && (
+        <p className="text-xs text-amber-700">
+          Sin ningún día activo, este comercial no va a poder recibir clientes en la cola.
+        </p>
+      )}
     </div>
   )
 }
@@ -55,6 +65,10 @@ function SeccionEquipos({ equipos, usuarios }) {
       ? equipo.miembros.filter((id) => id !== comercialId)
       : [...equipo.miembros, comercialId]
     await actualizarMiembrosEquipo(equipo.id, miembros)
+  }
+
+  function otrosEquiposDe(comercialId, equipoActualId) {
+    return equipos.filter((e) => e.id !== equipoActualId && e.miembros.includes(comercialId)).map((e) => e.nombre)
   }
 
   const comerciales = usuarios.filter((u) => u.rol === 'comercial')
@@ -78,12 +92,16 @@ function SeccionEquipos({ equipos, usuarios }) {
         <div key={equipo.id} className="border-t border-gray-100 pt-2">
           <p className="text-sm font-medium text-gray-900">{equipo.nombre}</p>
           <div className="flex flex-wrap gap-2 mt-1">
-            {comerciales.map((c) => (
-              <label key={c.id} className="flex items-center gap-1 text-xs bg-gray-50 rounded-full px-2 py-1">
-                <input type="checkbox" checked={equipo.miembros.includes(c.id)} onChange={() => toggleMiembro(equipo, c.id)} />
-                {c.nombre}
-              </label>
-            ))}
+            {comerciales.map((c) => {
+              const otros = otrosEquiposDe(c.id, equipo.id)
+              return (
+                <label key={c.id} className="flex items-center gap-1 text-xs bg-gray-50 rounded-full px-2 py-1">
+                  <input type="checkbox" checked={equipo.miembros.includes(c.id)} onChange={() => toggleMiembro(equipo, c.id)} />
+                  {c.nombre}
+                  {otros.length > 0 && <span className="text-amber-700">· también en: {otros.join(', ')}</span>}
+                </label>
+              )
+            })}
           </div>
         </div>
       ))}
@@ -120,7 +138,7 @@ function SeccionUsuarios({ equipos }) {
       setPassword('')
       setHorario(horarioVacio())
     } catch (err) {
-      setMensaje(err.message)
+      setMensaje(mensajeErrorAmigable(err))
     } finally {
       setEnviando(false)
     }
@@ -132,7 +150,18 @@ function SeccionUsuarios({ equipos }) {
       <form onSubmit={handleCrear} className="space-y-2">
         <input required placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
         <input required type="email" placeholder="Correo" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-        <input required type="password" placeholder="Contraseña temporal" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+        <div>
+          <input
+            required
+            type="password"
+            minLength={6}
+            placeholder="Contraseña temporal"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+          <p className="text-xs text-gray-400 mt-1">Mínimo 6 caracteres. La persona la puede cambiar después.</p>
+        </div>
         <select value={rol} onChange={(e) => setRol(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
           <option value="comercial">Comercial</option>
           <option value="anfitriona">Anfitriona</option>
@@ -156,6 +185,89 @@ function SeccionUsuarios({ equipos }) {
         </button>
         {mensaje && <p className="text-sm text-gray-600">{mensaje}</p>}
       </form>
+    </section>
+  )
+}
+
+function FilaUsuarioExistente({ usuario, equipos }) {
+  const [equipoId, setEquipoId] = useState(usuario.equipoId ?? '')
+  const [horario, setHorario] = useState(usuario.horarioSemanal ?? horarioVacio())
+  const [activo, setActivo] = useState(usuario.activo ?? true)
+  const [guardando, setGuardando] = useState(false)
+  const [mensaje, setMensaje] = useState('')
+
+  async function handleGuardar() {
+    setGuardando(true)
+    setMensaje('')
+    try {
+      await actualizarUsuario(usuario.id, {
+        equipoId: equipoId || null,
+        horarioSemanal: usuario.rol === 'comercial' ? horario : null,
+        activo,
+      })
+      setMensaje('Guardado.')
+    } catch (err) {
+      setMensaje(mensajeErrorAmigable(err))
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  return (
+    <div className="border-t border-gray-100 pt-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-900">{usuario.nombre}</p>
+          <p className="text-xs text-gray-500 capitalize">{usuario.rol}</p>
+        </div>
+        <label className="flex items-center gap-1 text-xs">
+          <input type="checkbox" checked={activo} onChange={(e) => setActivo(e.target.checked)} />
+          Activo
+        </label>
+      </div>
+      {!activo && (
+        <p className="text-xs text-amber-700">
+          Inactivo: no va a aparecer disponible en ninguna cola aunque siga en un equipo.
+        </p>
+      )}
+      {usuario.rol === 'comercial' && (
+        <>
+          <select value={equipoId} onChange={(e) => setEquipoId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+            <option value="">Sin equipo</option>
+            {equipos.map((eq) => (
+              <option key={eq.id} value={eq.id}>
+                {eq.nombre}
+              </option>
+            ))}
+          </select>
+          <EditorHorario horario={horario} onChange={setHorario} />
+        </>
+      )}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleGuardar}
+          disabled={guardando}
+          className="rounded-lg bg-gray-900 text-white px-3 py-1.5 text-xs disabled:opacity-50"
+        >
+          {guardando ? 'Guardando…' : 'Guardar cambios'}
+        </button>
+        {mensaje && <p className="text-xs text-gray-500">{mensaje}</p>}
+      </div>
+    </div>
+  )
+}
+
+function SeccionUsuariosExistentes({ usuarios, equipos }) {
+  if (usuarios.length === 0) return null
+  return (
+    <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+      <h2 className="text-sm font-semibold text-gray-900">Staff existente</h2>
+      <p className="text-xs text-gray-500">
+        Corrige aquí equipo, horario o si alguien ya no está activo — no hace falta tocar nada por fuera de la app.
+      </p>
+      {usuarios.map((u) => (
+        <FilaUsuarioExistente key={u.id} usuario={u} equipos={equipos} />
+      ))}
     </section>
   )
 }
@@ -208,6 +320,7 @@ export default function AdminPage() {
       <h1 className="text-lg font-semibold text-gray-900">Administración</h1>
       <SeccionEquipos equipos={equipos} usuarios={usuarios} />
       <SeccionUsuarios equipos={equipos} />
+      <SeccionUsuariosExistentes usuarios={usuarios} equipos={equipos} />
       <SeccionPicoYPlaca />
     </div>
   )

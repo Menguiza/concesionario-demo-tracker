@@ -4,6 +4,7 @@ import { registrarMovimiento } from '../features/movimientos/movimientosApi'
 import { verificarDisponibilidad, crearReserva } from '../features/reservas/reservasApi'
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { estaBloqueadoPorPicoYPlaca } from '../lib/picoYPlaca'
+import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { useAuth } from '../context/AuthContext'
 
 function EstadoBadge({ vehiculo, picoYPlacaConfig }) {
@@ -13,9 +14,9 @@ function EstadoBadge({ vehiculo, picoYPlacaConfig }) {
   return <span className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-3 py-1">Disponible</span>
 }
 
-function FormularioMovimiento({ vehiculo, onCerrar }) {
+function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
   const { perfil } = useAuth()
-  const [tipo, setTipo] = useState(vehiculo.estado === 'prestado' ? 'recepcion' : 'entrega')
+  const tipo = vehiculo.estado === 'prestado' ? 'recepcion' : 'entrega'
   const [quienNombre, setQuienNombre] = useState('')
   const [quienTipo, setQuienTipo] = useState('comercial')
   const [motivo, setMotivo] = useState('')
@@ -25,9 +26,19 @@ function FormularioMovimiento({ vehiculo, onCerrar }) {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
 
+  const bloqueadoPorPicoYPlaca = tipo === 'entrega' && estaBloqueadoPorPicoYPlaca(vehiculo, picoYPlacaConfig)
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+
+    if (bloqueadoPorPicoYPlaca) {
+      const continuar = window.confirm(
+        `${vehiculo.placa} tiene pico y placa hoy. Solo continúa si tienes autorización explícita para usarlo de todas formas. ¿Confirmas que sí?`
+      )
+      if (!continuar) return
+    }
+
     setEnviando(true)
     try {
       await registrarMovimiento({
@@ -42,7 +53,7 @@ function FormularioMovimiento({ vehiculo, onCerrar }) {
       })
       onCerrar()
     } catch (err) {
-      setError(err.message)
+      setError(mensajeErrorAmigable(err))
     } finally {
       setEnviando(false)
     }
@@ -50,14 +61,14 @@ function FormularioMovimiento({ vehiculo, onCerrar }) {
 
   return (
     <form onSubmit={handleSubmit} className="mt-2 space-y-3 bg-gray-50 rounded-lg p-3">
-      <div className="flex gap-4 text-sm">
-        <label className="flex items-center gap-1">
-          <input type="radio" checked={tipo === 'entrega'} onChange={() => setTipo('entrega')} /> Entrega
-        </label>
-        <label className="flex items-center gap-1">
-          <input type="radio" checked={tipo === 'recepcion'} onChange={() => setTipo('recepcion')} /> Recepción
-        </label>
-      </div>
+      <p className="text-sm font-medium text-gray-900">
+        Vas a registrar: {tipo === 'entrega' ? 'Entrega del vehículo' : 'Recepción del vehículo'}
+      </p>
+      {bloqueadoPorPicoYPlaca && (
+        <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-2">
+          Este vehículo tiene pico y placa hoy. Al guardar te vamos a pedir confirmación de que tienes autorización.
+        </p>
+      )}
       <div className="flex gap-2">
         <select value={quienTipo} onChange={(e) => setQuienTipo(e.target.value)} className="rounded-lg border border-gray-300 px-2 py-2 text-sm">
           <option value="comercial">Comercial</option>
@@ -164,16 +175,28 @@ export default function VehiculosPage() {
   const [nuevaPlaca, setNuevaPlaca] = useState('')
   const [nuevoModelo, setNuevoModelo] = useState('')
   const [nuevoElectrico, setNuevoElectrico] = useState(false)
+  const [errorVehiculo, setErrorVehiculo] = useState('')
 
   useEffect(() => suscribirVehiculos(setVehiculos), [])
   useEffect(() => suscribirPicoYPlacaConfig(setPicoYPlacaConfig), [])
 
   async function handleCrearVehiculo(e) {
     e.preventDefault()
-    await crearVehiculo({ placa: nuevaPlaca, marcaModelo: nuevoModelo, esElectricoHibrido: nuevoElectrico })
-    setNuevaPlaca('')
-    setNuevoModelo('')
-    setNuevoElectrico(false)
+    setErrorVehiculo('')
+    const placaNormalizada = nuevaPlaca.trim().toUpperCase()
+    const yaExiste = vehiculos.some((v) => v.placa.trim().toUpperCase() === placaNormalizada)
+    if (yaExiste) {
+      setErrorVehiculo(`Ya existe un vehículo con la placa ${placaNormalizada}.`)
+      return
+    }
+    try {
+      await crearVehiculo({ placa: placaNormalizada, marcaModelo: nuevoModelo, esElectricoHibrido: nuevoElectrico })
+      setNuevaPlaca('')
+      setNuevoModelo('')
+      setNuevoElectrico(false)
+    } catch (err) {
+      setErrorVehiculo(mensajeErrorAmigable(err))
+    }
   }
 
   return (
@@ -203,7 +226,9 @@ export default function VehiculosPage() {
                 Disponibilidad a futuro
               </button>
             </div>
-            {expandido === v.id && <FormularioMovimiento vehiculo={v} onCerrar={() => setExpandido(null)} />}
+            {expandido === v.id && (
+              <FormularioMovimiento vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} onCerrar={() => setExpandido(null)} />
+            )}
             {mostrandoDisponibilidad === v.id && <ChequeoDisponibilidad vehiculo={v} />}
           </li>
         ))}
@@ -229,6 +254,7 @@ export default function VehiculosPage() {
             <input type="checkbox" checked={nuevoElectrico} onChange={(e) => setNuevoElectrico(e.target.checked)} />
             Es eléctrico o híbrido (exento de pico y placa)
           </label>
+          {errorVehiculo && <p className="text-sm text-red-600">{errorVehiculo}</p>}
           <button type="submit" className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm">
             Agregar
           </button>

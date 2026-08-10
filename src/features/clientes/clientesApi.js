@@ -29,6 +29,10 @@ export function marcarDescarte(clienteId, motivo) {
   return updateDoc(doc(db, 'clientes', clienteId), { efectivo: false, motivoDescarte: motivo })
 }
 
+export function revertirDescarte(clienteId) {
+  return updateDoc(doc(db, 'clientes', clienteId), { efectivo: true, motivoDescarte: null })
+}
+
 export function suscribirClientesDeComercial(comercialId, callback) {
   const q = query(collection(db, 'clientes'), where('comercialAsignadoId', '==', comercialId))
   return onSnapshot(q, (snap) => {

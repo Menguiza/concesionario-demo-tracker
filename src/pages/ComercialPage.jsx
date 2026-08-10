@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { suscribirClientesDeComercial, marcarDescarte } from '../features/clientes/clientesApi'
+import { suscribirClientesDeComercial, marcarDescarte, revertirDescarte } from '../features/clientes/clientesApi'
 import { useAuth } from '../context/AuthContext'
 
 const MOTIVOS_DESCARTE = ['Se equivocó de lugar', 'No tiene dinero', 'Solo estaba curioseando', 'Otro']
@@ -41,6 +41,11 @@ export default function ComercialPage() {
                 <span className="text-xs rounded-full bg-gray-200 text-gray-600 px-3 py-1">Descartado: {c.motivoDescarte}</span>
               )}
             </div>
+            {!c.efectivo && (
+              <button onClick={() => revertirDescarte(c.id)} className="mt-2 text-sm text-gray-500 underline">
+                Fue un error, volver a marcar como efectivo
+              </button>
+            )}
             {c.efectivo && (
               <div className="mt-2">
                 {editando === c.id ? (

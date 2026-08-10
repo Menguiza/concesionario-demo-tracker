@@ -12,6 +12,7 @@ import { registrarCliente, contarClientesEfectivosEnRango } from '../features/cl
 import { construirOrdenInicial, elegirYRotar, asignarComercialEspecifico, pasarSinConsumirCola } from '../lib/queue'
 import { estaEnHorario } from '../lib/horario'
 import { rangoSemanaPasada } from '../lib/fechas'
+import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 
 export default function AnfitrionaPage() {
   const [equipos, setEquipos] = useState([])
@@ -47,6 +48,11 @@ export default function AnfitrionaPage() {
     return usuarios.filter((u) => equipo.miembros.includes(u.id))
   }, [equipos, usuarios, equipoActivoId])
 
+  const comercialesActivosEquipo = useMemo(
+    () => comercialesEquipo.filter((c) => c.activo !== false),
+    [comercialesEquipo]
+  )
+
   const comercialesPorId = useMemo(
     () => Object.fromEntries(comercialesEquipo.map((c) => [c.id, c])),
     [comercialesEquipo]
@@ -55,10 +61,10 @@ export default function AnfitrionaPage() {
   async function handleIniciarSemana(equipoId) {
     const { desde, hasta } = rangoSemanaPasada()
     const equipo = equipos.find((e) => e.id === equipoId)
-    const miembros = usuarios.filter((u) => equipo.miembros.includes(u.id))
+    const miembros = usuarios.filter((u) => equipo.miembros.includes(u.id) && u.activo !== false)
 
     if (miembros.length === 0) {
-      setMensaje(`El equipo "${equipo.nombre}" todavía no tiene comerciales asignados.`)
+      setMensaje(`El equipo "${equipo.nombre}" todavía no tiene comerciales activos asignados.`)
       return
     }
 
@@ -76,12 +82,14 @@ export default function AnfitrionaPage() {
       await inicializarColaSemana(equipoId, orden)
       setMensaje(`Semana iniciada con el equipo "${equipo.nombre}".`)
     } catch (err) {
-      setMensaje(`Error al iniciar semana: ${err.message}`)
+      setMensaje(mensajeErrorAmigable(err))
     }
   }
 
   function idsEnHorarioAhora() {
-    return new Set(comercialesEquipo.filter((c) => estaEnHorario(c.horarioSemanal)).map((c) => c.id))
+    return new Set(
+      comercialesEquipo.filter((c) => c.activo !== false && estaEnHorario(c.horarioSemanal)).map((c) => c.id)
+    )
   }
 
   async function handleAsignar(e) {
@@ -123,7 +131,7 @@ export default function AnfitrionaPage() {
         setMensaje(`Cliente asignado a ${comercialesPorId[elegido]?.nombre ?? 'comercial'}.`)
       }
     } catch (err) {
-      setMensaje(`Error al asignar: ${err.message}`)
+      setMensaje(mensajeErrorAmigable(err))
       return
     }
 
@@ -171,7 +179,14 @@ export default function AnfitrionaPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900">Cola — {equipoActivo?.nombre}</h1>
         <div className="flex gap-3">
-          <button onClick={() => handleIniciarSemana(equipoActivoId)} className="text-sm text-gray-500 underline">
+          <button
+            onClick={() => {
+              if (window.confirm('Esto borra quién está ocupado y las llegadas de hoy, y recalcula el orden desde cero. ¿Continuar?')) {
+                handleIniciarSemana(equipoActivoId)
+              }
+            }}
+            className="text-sm text-gray-500 underline"
+          >
             Reiniciar orden de la semana
           </button>
           <button onClick={() => setMostrarCambioEquipo((v) => !v)} className="text-sm text-gray-500 underline">
@@ -192,6 +207,7 @@ export default function AnfitrionaPage() {
                 <button
                   key={e.id}
                   onClick={async () => {
+                    if (!window.confirm(`¿Cambiar a "${e.nombre}"? Se pierde el progreso de la cola actual.`)) return
                     await handleIniciarSemana(e.id)
                     setMostrarCambioEquipo(false)
                   }}
@@ -265,7 +281,7 @@ export default function AnfitrionaPage() {
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           >
             <option value="">Selecciona comercial</option>
-            {comercialesEquipo.map((c) => (
+            {comercialesActivosEquipo.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nombre}
               </option>
