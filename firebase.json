@@ -2,7 +2,10 @@
   "firestore": {
     "rules": "firestore.rules"
   },
-  "storage": {
-    "rules": "storage.rules"
-  }
+  "storage": [
+    {
+      "bucket": "concesionario-demo-tracker.firebasestorage.app",
+      "rules": "storage.rules"
+    }
+  ]
 }
