@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import { suscribirVehiculos, crearVehiculo } from '../features/vehiculos/vehiculosApi'
 import { registrarMovimiento } from '../features/movimientos/movimientosApi'
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
-import { estaBloqueadoPorPicoYPlaca } from '../lib/picoYPlaca'
+import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
+import { parseFechaLocal } from '../lib/fechas'
 import { useAuth } from '../context/AuthContext'
 
 const PATRON_PLACA = /^[A-Z]{3}[0-9]{3}$/
@@ -14,6 +15,42 @@ function EstadoBadge({ vehiculo, picoYPlacaConfig }) {
   if (vehiculo.estado === 'prestado') return <span className="text-xs rounded-full bg-amber-100 text-amber-800 px-3 py-1">Prestado</span>
   if (bloqueado) return <span className="text-xs rounded-full bg-red-100 text-red-800 px-3 py-1">Pico y placa hoy</span>
   return <span className="text-xs rounded-full bg-emerald-100 text-emerald-800 px-3 py-1">Disponible</span>
+}
+
+function ConsultaPicoYPlacaRapida({ vehiculo, picoYPlacaConfig }) {
+  const [fecha, setFecha] = useState(null)
+
+  const hoy = new Date()
+  const manana = new Date(hoy)
+  manana.setDate(hoy.getDate() + 1)
+
+  const bloqueado = fecha ? diasBloqueadosPorPicoYPlacaEnRango(vehiculo, picoYPlacaConfig, fecha, fecha).length > 0 : null
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+      <span className="text-gray-400">¿Pico y placa?</span>
+      <button onClick={() => setFecha(hoy)} className="rounded-full border border-gray-300 px-2 py-1 text-gray-600">
+        Hoy
+      </button>
+      <button onClick={() => setFecha(manana)} className="rounded-full border border-gray-300 px-2 py-1 text-gray-600">
+        Mañana
+      </button>
+      <input
+        type="date"
+        onChange={(e) => e.target.value && setFecha(parseFechaLocal(e.target.value))}
+        className="rounded border border-gray-300 px-1 py-0.5 text-gray-600"
+      />
+      {fecha && (
+        <span className={`font-medium ${bloqueado ? 'text-red-700' : 'text-emerald-700'}`}>
+          {vehiculo.esElectricoHibrido
+            ? 'Exento (eléctrico/híbrido)'
+            : bloqueado
+              ? `Sí, bloqueado el ${fecha.toLocaleDateString('es-CO')}`
+              : `Libre el ${fecha.toLocaleDateString('es-CO')}`}
+        </span>
+      )}
+    </div>
+  )
 }
 
 function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
@@ -182,6 +219,7 @@ export default function VehiculosPage() {
               </div>
               <EstadoBadge vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} />
             </div>
+            <ConsultaPicoYPlacaRapida vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} />
             <div className="mt-2 flex gap-3 text-sm">
               <button onClick={() => setExpandido(expandido === v.id ? null : v.id)} className="text-gray-900 underline">
                 Registrar movimiento
