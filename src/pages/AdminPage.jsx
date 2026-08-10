@@ -149,9 +149,18 @@ function SeccionUsuarios({ equipos }) {
   return (
     <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
       <h2 className="text-sm font-semibold text-gray-900">Crear cuenta de staff</h2>
-      <form onSubmit={handleCrear} className="space-y-2">
+      <form onSubmit={handleCrear} className="space-y-2" autoComplete="off">
         <input required placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-        <input required type="email" placeholder="Correo" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+        <input
+          required
+          type="email"
+          placeholder="Correo del nuevo usuario"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="off"
+          name="nuevo-staff-correo"
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        />
         <div>
           <input
             required
@@ -160,6 +169,8 @@ function SeccionUsuarios({ equipos }) {
             placeholder="Contraseña temporal"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            name="nuevo-staff-password"
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
           <p className="text-xs text-gray-400 mt-1">Mínimo 6 caracteres. La persona la puede cambiar después.</p>
