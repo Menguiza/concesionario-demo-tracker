@@ -56,18 +56,27 @@ export default function AnfitrionaPage() {
     const equipo = equipos.find((e) => e.id === equipoId)
     const miembros = usuarios.filter((u) => equipo.miembros.includes(u.id))
 
-    const conteos = await Promise.all(
-      miembros.map(async (m) => ({
-        id: m.id,
-        clientesEfectivosSemanaPasada: await contarClientesEfectivosEnRango(m.id, desde, hasta),
-        horaLlegadaHoy: null,
-      }))
-    )
+    if (miembros.length === 0) {
+      setMensaje(`El equipo "${equipo.nombre}" todavía no tiene comerciales asignados.`)
+      return
+    }
 
-    const orden = construirOrdenInicial(conteos)
-    await fijarEquipoActivo(equipoId)
-    await inicializarColaSemana(equipoId, orden)
-    setMensaje(`Semana iniciada con el equipo "${equipo.nombre}".`)
+    try {
+      const conteos = await Promise.all(
+        miembros.map(async (m) => ({
+          id: m.id,
+          clientesEfectivosSemanaPasada: await contarClientesEfectivosEnRango(m.id, desde, hasta),
+          horaLlegadaHoy: null,
+        }))
+      )
+
+      const orden = construirOrdenInicial(conteos)
+      await fijarEquipoActivo(equipoId)
+      await inicializarColaSemana(equipoId, orden)
+      setMensaje(`Semana iniciada con el equipo "${equipo.nombre}".`)
+    } catch (err) {
+      setMensaje(`Error al iniciar semana: ${err.message}`)
+    }
   }
 
   function idsEnHorarioAhora() {
@@ -79,37 +88,42 @@ export default function AnfitrionaPage() {
     setMensaje('')
     if (!cola || !equipoActivoId) return
 
-    if (pideEspecifico && comercialEspecificoId) {
-      const nuevoOrden =
-        tipoCliente === 'nuevo'
-          ? asignarComercialEspecifico(cola.orden, comercialEspecificoId)
-          : pasarSinConsumirCola(cola.orden)
+    try {
+      if (pideEspecifico && comercialEspecificoId) {
+        const nuevoOrden =
+          tipoCliente === 'nuevo'
+            ? asignarComercialEspecifico(cola.orden, comercialEspecificoId)
+            : pasarSinConsumirCola(cola.orden)
 
-      await registrarCliente({
-        nombre: nombreCliente,
-        telefono: telefonoCliente,
-        tipo: tipoCliente,
-        comercialAsignadoId: comercialEspecificoId,
-        comercialSolicitado: true,
-      })
-      if (tipoCliente === 'nuevo') await actualizarOrden(equipoActivoId, nuevoOrden)
-      setMensaje(`Cliente asignado a ${comercialesPorId[comercialEspecificoId]?.nombre ?? 'comercial'}.`)
-    } else {
-      const idsOcupados = new Set(cola.ocupados ?? [])
-      const { elegido, nuevoOrden } = elegirYRotar(cola.orden, idsOcupados, idsEnHorarioAhora())
-      if (!elegido) {
-        setMensaje('No hay comerciales disponibles en este momento.')
-        return
+        await registrarCliente({
+          nombre: nombreCliente,
+          telefono: telefonoCliente,
+          tipo: tipoCliente,
+          comercialAsignadoId: comercialEspecificoId,
+          comercialSolicitado: true,
+        })
+        if (tipoCliente === 'nuevo') await actualizarOrden(equipoActivoId, nuevoOrden)
+        setMensaje(`Cliente asignado a ${comercialesPorId[comercialEspecificoId]?.nombre ?? 'comercial'}.`)
+      } else {
+        const idsOcupados = new Set(cola.ocupados ?? [])
+        const { elegido, nuevoOrden } = elegirYRotar(cola.orden, idsOcupados, idsEnHorarioAhora())
+        if (!elegido) {
+          setMensaje('No hay comerciales disponibles en este momento.')
+          return
+        }
+        await registrarCliente({
+          nombre: nombreCliente,
+          telefono: telefonoCliente,
+          tipo: tipoCliente,
+          comercialAsignadoId: elegido,
+          comercialSolicitado: false,
+        })
+        await actualizarOrden(equipoActivoId, nuevoOrden)
+        setMensaje(`Cliente asignado a ${comercialesPorId[elegido]?.nombre ?? 'comercial'}.`)
       }
-      await registrarCliente({
-        nombre: nombreCliente,
-        telefono: telefonoCliente,
-        tipo: tipoCliente,
-        comercialAsignadoId: elegido,
-        comercialSolicitado: false,
-      })
-      await actualizarOrden(equipoActivoId, nuevoOrden)
-      setMensaje(`Cliente asignado a ${comercialesPorId[elegido]?.nombre ?? 'comercial'}.`)
+    } catch (err) {
+      setMensaje(`Error al asignar: ${err.message}`)
+      return
     }
 
     setNombreCliente('')
