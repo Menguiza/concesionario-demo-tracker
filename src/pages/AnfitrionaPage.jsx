@@ -53,6 +53,23 @@ export default function AnfitrionaPage() {
     [comercialesEquipo]
   )
 
+  // El orden de la cola se fija al iniciar semana y no se actualiza solo si
+  // después cambian los miembros del equipo (se agrega o se quita a alguien).
+  // Esto lo mantiene sincronizado: agrega al final a quien entra, saca a
+  // quien ya no está o quedó inactivo.
+  useEffect(() => {
+    if (!cola || !equipoActivoId) return
+    const idsEquipoActivo = new Set(comercialesActivosEquipo.map((c) => c.id))
+    const ordenActual = cola.orden ?? []
+    const faltaAlguienEnOrden = comercialesActivosEquipo.some((c) => !ordenActual.includes(c.id))
+    const sobraAlguienEnOrden = ordenActual.some((id) => !idsEquipoActivo.has(id))
+    if (!faltaAlguienEnOrden && !sobraAlguienEnOrden) return
+
+    const nuevosMiembros = [...idsEquipoActivo].filter((id) => !ordenActual.includes(id))
+    const nuevoOrden = [...ordenActual.filter((id) => idsEquipoActivo.has(id)), ...nuevosMiembros]
+    actualizarOrden(equipoActivoId, nuevoOrden)
+  }, [cola, comercialesActivosEquipo, equipoActivoId])
+
   const comercialesPorId = useMemo(
     () => Object.fromEntries(comercialesEquipo.map((c) => [c.id, c])),
     [comercialesEquipo]

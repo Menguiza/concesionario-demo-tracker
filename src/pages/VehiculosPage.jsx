@@ -7,6 +7,7 @@ import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango } from '
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { parseFechaLocal } from '../lib/fechas'
 import { useAuth } from '../context/AuthContext'
+import CampoArchivo from '../components/CampoArchivo'
 
 const PATRON_PLACA = /^[A-Z]{3}[0-9]{3}$/
 
@@ -99,6 +100,11 @@ function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
     e.preventDefault()
     setError('')
 
+    if (fotos.length === 0) {
+      setError('Toma al menos una foto antes de guardar.')
+      return
+    }
+
     if (bloqueadoPorPicoYPlaca) {
       const continuar = window.confirm(
         `${vehiculo.placa} tiene pico y placa hoy. Solo continúa si tienes autorización explícita para usarlo de todas formas. ¿Confirmas que sí?`
@@ -157,26 +163,33 @@ function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
         onChange={(e) => setMotivo(e.target.value)}
         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
       />
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">Fotos (obligatorio, varios ángulos + kilometraje)</label>
-        <input
-          required
-          type="file"
-          accept="image/*"
-          capture="environment"
-          multiple
-          onChange={(e) => setFotos(Array.from(e.target.files))}
-          className="text-sm"
-        />
-      </div>
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">Video (opcional)</label>
-        <input type="file" accept="video/*" capture="environment" onChange={(e) => setVideo(e.target.files[0] ?? null)} className="text-sm" />
-      </div>
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">Documento firmado escaneado (opcional)</label>
-        <input type="file" accept="image/*,application/pdf" onChange={(e) => setDocumento(e.target.files[0] ?? null)} className="text-sm" />
-      </div>
+      <CampoArchivo
+        label="Fotos (obligatorio, varios ángulos + kilometraje)"
+        icono="camara"
+        accept="image/*"
+        capture="environment"
+        multiple
+        archivos={fotos}
+        textoVacio="Toca para tomar o elegir fotos"
+        onChange={(e) => setFotos(Array.from(e.target.files))}
+      />
+      <CampoArchivo
+        label="Video (opcional)"
+        icono="video"
+        accept="video/*"
+        capture="environment"
+        archivos={video ? [video] : []}
+        textoVacio="Toca para grabar o elegir un video"
+        onChange={(e) => setVideo(e.target.files[0] ?? null)}
+      />
+      <CampoArchivo
+        label="Documento firmado escaneado (opcional)"
+        icono="documento"
+        accept="image/*,application/pdf"
+        archivos={documento ? [documento] : []}
+        textoVacio="Toca para adjuntar el documento"
+        onChange={(e) => setDocumento(e.target.files[0] ?? null)}
+      />
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={enviando} className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm disabled:opacity-50">
