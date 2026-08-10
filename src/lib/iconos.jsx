@@ -90,3 +90,35 @@ export function IconoFlechaDerecha(props) {
     </svg>
   )
 }
+
+export function IconoContrasena(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M15 7a3 3 0 11-6 0 3 3 0 016 0zM12.7 9.3L20 16.6M17.5 12.5L20 15l-2 2-2-2" />
+    </svg>
+  )
+}
+
+export function IconoSalir(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M9 21H6a2 2 0 01-2-2V5a2 2 0 012-2h3M16 17l5-5-5-5M21 12H9" />
+    </svg>
+  )
+}
+
+export function IconoMenu(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  )
+}
+
+export function IconoCerrar(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  )
+}

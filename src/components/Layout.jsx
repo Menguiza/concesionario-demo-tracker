@@ -1,9 +1,10 @@
+import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import { seccionesDeRol } from '../lib/navegacion'
-import { IconoInicio } from '../lib/iconos'
+import { IconoInicio, IconoContrasena, IconoSalir, IconoMenu, IconoCerrar } from '../lib/iconos'
 import GateReservaActiva from './GateReservaActiva'
 
 function iniciales(nombre) {
@@ -12,108 +13,163 @@ function iniciales(nombre) {
   return ((partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '')).toUpperCase()
 }
 
+const ITEM_NAV =
+  'flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors duration-150'
+const ITEM_NAV_ACTIVO = 'bg-gray-900 text-white'
+const ITEM_NAV_INACTIVO = 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+
 export default function Layout() {
   const { perfil, rol } = useAuth()
   const location = useLocation()
   const links = seccionesDeRol(rol)
+  const [menuAbierto, setMenuAbierto] = useState(false)
+
+  useEffect(() => setMenuAbierto(false), [location.pathname])
 
   return (
     <GateReservaActiva>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 flex flex-col">
         <header className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-200 px-4 py-3 shadow-sm">
-          <div className="max-w-3xl lg:max-w-5xl mx-auto flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <Link
-                to="/"
-                title="Inicio"
-                className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center shrink-0 transition-transform duration-150 hover:scale-105 active:scale-95"
-              >
-                <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-white">
-                  <path
-                    d="M3 13l1.5-4.5A2 2 0 016.4 7h11.2a2 2 0 011.9 1.5L21 13M5 13h14v5a1 1 0 01-1 1h-1a1 1 0 01-1-1v-1H8v1a1 1 0 01-1 1H6a1 1 0 01-1-1v-5z"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinejoin="round"
-                  />
-                  <circle cx="7.5" cy="16" r="0.8" fill="currentColor" />
-                  <circle cx="16.5" cy="16" r="0.8" fill="currentColor" />
-                </svg>
-              </Link>
-              <nav className="flex flex-wrap gap-1">
-                <NavLink
+          <div className="max-w-3xl lg:max-w-5xl mx-auto">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <Link
                   to="/"
-                  end
                   title="Inicio"
-                  className={({ isActive }) =>
-                    `flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors duration-150 ${
-                      isActive ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-                    }`
-                  }
+                  className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center shrink-0 transition-transform duration-150 hover:scale-105 active:scale-95"
                 >
-                  <IconoInicio className="w-4 h-4 shrink-0" />
-                  <span className="hidden sm:inline">Inicio</span>
-                </NavLink>
-                {links.map((link) => (
+                  <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-white">
+                    <path
+                      d="M3 13l1.5-4.5A2 2 0 016.4 7h11.2a2 2 0 011.9 1.5L21 13M5 13h14v5a1 1 0 01-1 1h-1a1 1 0 01-1-1v-1H8v1a1 1 0 01-1 1H6a1 1 0 01-1-1v-5z"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinejoin="round"
+                    />
+                    <circle cx="7.5" cy="16" r="0.8" fill="currentColor" />
+                    <circle cx="16.5" cy="16" r="0.8" fill="currentColor" />
+                  </svg>
+                </Link>
+
+                <nav className="hidden sm:flex flex-wrap gap-1">
                   <NavLink
-                    key={link.to}
-                    to={link.to}
+                    to="/"
+                    end
+                    title="Inicio"
+                    className={({ isActive }) => `${ITEM_NAV} ${isActive ? ITEM_NAV_ACTIVO : ITEM_NAV_INACTIVO}`}
+                  >
+                    <IconoInicio className="w-4 h-4 shrink-0" />
+                    <span>Inicio</span>
+                  </NavLink>
+                  {links.map((link) => (
+                    <NavLink
+                      key={link.to}
+                      to={link.to}
+                      className={({ isActive }) => `${ITEM_NAV} ${isActive ? ITEM_NAV_ACTIVO : ITEM_NAV_INACTIVO}`}
+                    >
+                      <link.icono className="w-4 h-4 shrink-0" />
+                      <span>{link.label}</span>
+                    </NavLink>
+                  ))}
+                </nav>
+              </div>
+
+              <div className="hidden sm:flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center shrink-0">
+                    {iniciales(perfil?.nombre)}
+                  </div>
+                  <span className="text-sm text-gray-600 truncate max-w-[120px]">{perfil?.nombre}</span>
+                </div>
+                <NavLink
+                  to="/cambiar-password"
+                  title="Cambiar contraseña"
+                  className="text-gray-400 hover:text-gray-700 transition-colors p-1.5 rounded-lg hover:bg-gray-100 shrink-0"
+                >
+                  <IconoContrasena className="w-4 h-4" />
+                </NavLink>
+                <button
+                  onClick={() => signOut(auth)}
+                  title="Salir"
+                  className="text-gray-400 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-red-50 shrink-0"
+                >
+                  <IconoSalir className="w-4 h-4" />
+                </button>
+              </div>
+
+              <button
+                onClick={() => setMenuAbierto((v) => !v)}
+                title={menuAbierto ? 'Cerrar menú' : 'Abrir menú'}
+                className="sm:hidden text-gray-500 hover:text-gray-900 transition-colors p-1.5 rounded-lg hover:bg-gray-100 shrink-0"
+              >
+                {menuAbierto ? <IconoCerrar className="w-5 h-5" /> : <IconoMenu className="w-5 h-5" />}
+              </button>
+            </div>
+
+            {menuAbierto && (
+              <div className="sm:hidden mt-3 pt-3 border-t border-gray-100 space-y-1 animate-slide-up">
+                <nav className="space-y-1">
+                  <NavLink
+                    to="/"
+                    end
                     className={({ isActive }) =>
-                      `flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors duration-150 ${
-                        isActive ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                      `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                        isActive ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
                       }`
                     }
                   >
-                    <link.icono className="w-4 h-4 shrink-0" />
-                    <span>{link.label}</span>
+                    <IconoInicio className="w-4 h-4 shrink-0" />
+                    Inicio
                   </NavLink>
-                ))}
-              </nav>
-            </div>
-            <div className="flex items-center justify-between gap-2 sm:justify-end">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center shrink-0">
-                  {iniciales(perfil?.nombre)}
+                  {links.map((link) => (
+                    <NavLink
+                      key={link.to}
+                      to={link.to}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                          isActive ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+                        }`
+                      }
+                    >
+                      <link.icono className="w-4 h-4 shrink-0" />
+                      {link.label}
+                    </NavLink>
+                  ))}
+                </nav>
+
+                <div className="border-t border-gray-100 pt-2 mt-2 space-y-1">
+                  <div className="flex items-center gap-2.5 px-3 py-2">
+                    <div className="w-7 h-7 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center shrink-0">
+                      {iniciales(perfil?.nombre)}
+                    </div>
+                    <span className="text-sm text-gray-600 truncate">{perfil?.nombre}</span>
+                  </div>
+                  <NavLink to="/cambiar-password" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors">
+                    <IconoContrasena className="w-4 h-4 shrink-0" />
+                    Cambiar contraseña
+                  </NavLink>
+                  <button
+                    onClick={() => signOut(auth)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-colors w-full text-left"
+                  >
+                    <IconoSalir className="w-4 h-4 shrink-0" />
+                    Salir
+                  </button>
                 </div>
-                <span className="text-sm text-gray-600 truncate max-w-[120px]">{perfil?.nombre}</span>
               </div>
-              <NavLink
-                to="/cambiar-password"
-                title="Cambiar contraseña"
-                className="text-gray-400 hover:text-gray-700 transition-colors p-1.5 rounded-lg hover:bg-gray-100 shrink-0"
-              >
-                <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
-                  <path
-                    d="M15 7a3 3 0 11-6 0 3 3 0 016 0zM12.7 9.3L20 16.6M17.5 12.5L20 15l-2 2-2-2"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </NavLink>
-              <button
-                onClick={() => signOut(auth)}
-                title="Salir"
-                className="text-gray-400 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-red-50 shrink-0"
-              >
-                <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4">
-                  <path
-                    d="M9 21H6a2 2 0 01-2-2V5a2 2 0 012-2h3M16 17l5-5-5-5M21 12H9"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-            </div>
+            )}
           </div>
         </header>
-        <main className="p-4 max-w-3xl lg:max-w-5xl mx-auto">
+        <main className="flex-1 p-4 max-w-3xl lg:max-w-5xl mx-auto w-full">
           <div key={location.pathname} className="animate-fade-in">
             <Outlet />
           </div>
         </main>
+        <footer className="border-t border-gray-200 px-4 py-4 text-center">
+          <p className="text-xs text-gray-400">
+            by Daniel Hoyos <span className="text-gray-300">&middot;</span> <span className="text-gray-500">@menguiza</span>
+          </p>
+          <p className="text-[11px] text-gray-300 mt-0.5">© {new Date().getFullYear()} Daniel Hoyos. All rights reserved.</p>
+        </footer>
       </div>
     </GateReservaActiva>
   )
