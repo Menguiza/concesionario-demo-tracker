@@ -1,0 +1,54 @@
+import { NavLink, Outlet } from 'react-router-dom'
+import { signOut } from 'firebase/auth'
+import { auth } from '../firebase/config'
+import { useAuth } from '../context/AuthContext'
+
+const LINKS_POR_ROL = {
+  admin: [
+    { to: '/admin', label: 'Administración' },
+    { to: '/vehiculos', label: 'Vehículos' },
+    { to: '/anfitriona', label: 'Cola' },
+  ],
+  anfitriona: [
+    { to: '/anfitriona', label: 'Cola' },
+    { to: '/vehiculos', label: 'Vehículos' },
+  ],
+  comercial: [
+    { to: '/comercial', label: 'Mis clientes' },
+    { to: '/vehiculos', label: 'Vehículos' },
+  ],
+}
+
+export default function Layout() {
+  const { perfil, rol } = useAuth()
+  const links = LINKS_POR_ROL[rol] ?? []
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <nav className="flex gap-4">
+          {links.map((link) => (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              className={({ isActive }) =>
+                `text-sm font-medium ${isActive ? 'text-gray-900' : 'text-gray-500'}`
+              }
+            >
+              {link.label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">{perfil?.nombre}</span>
+          <button onClick={() => signOut(auth)} className="text-sm text-gray-500 underline">
+            Salir
+          </button>
+        </div>
+      </header>
+      <main className="p-4 max-w-3xl mx-auto">
+        <Outlet />
+      </main>
+    </div>
+  )
+}

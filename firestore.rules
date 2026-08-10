@@ -1,0 +1,69 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function rolDe(uid) {
+      return get(/databases/$(database)/documents/usuarios/$(uid)).data.rol;
+    }
+    function esAdmin() {
+      return request.auth != null && rolDe(request.auth.uid) == 'admin';
+    }
+    function esAnfitriona() {
+      return request.auth != null && rolDe(request.auth.uid) == 'anfitriona';
+    }
+    function autenticado() {
+      return request.auth != null;
+    }
+
+    match /usuarios/{uid} {
+      allow read: if autenticado();
+      allow write: if esAdmin();
+    }
+
+    match /equipos/{id} {
+      allow read: if autenticado();
+      allow write: if esAdmin();
+    }
+
+    match /estadoSemana/{id} {
+      allow read: if autenticado();
+      allow write: if esAdmin() || esAnfitriona();
+    }
+
+    match /historialEquipos/{id} {
+      allow read: if autenticado();
+      allow create: if esAdmin() || esAnfitriona();
+    }
+
+    match /colaEquipo/{id} {
+      allow read: if autenticado();
+      allow write: if autenticado();
+    }
+
+    match /clientes/{id} {
+      allow read: if autenticado();
+      allow create: if esAdmin() || esAnfitriona();
+      allow update: if autenticado();
+    }
+
+    match /vehiculos/{id} {
+      allow read: if autenticado();
+      allow write: if esAdmin() || esAnfitriona();
+    }
+
+    match /movimientos/{id} {
+      allow read: if autenticado();
+      allow create: if autenticado();
+      allow update, delete: if false;
+    }
+
+    match /reservas/{id} {
+      allow read, write: if autenticado();
+    }
+
+    match /picoYPlacaConfig/{id} {
+      allow read: if autenticado();
+      allow write: if esAdmin();
+    }
+  }
+}
