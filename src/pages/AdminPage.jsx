@@ -178,6 +178,7 @@ function SeccionUsuarios({ equipos }) {
         <select value={rol} onChange={(e) => setRol(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
           <option value="comercial">Comercial</option>
           <option value="anfitriona">Anfitriona</option>
+          <option value="directivo">Directivo</option>
           <option value="admin">Admin</option>
         </select>
         {rol === 'comercial' && (

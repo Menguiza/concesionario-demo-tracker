@@ -13,6 +13,7 @@ function InicioRedirect() {
   const { rol } = useAuth()
   if (rol === 'comercial') return <Navigate to="/comercial" replace />
   if (rol === 'admin' || rol === 'anfitriona') return <Navigate to="/anfitriona" replace />
+  if (rol === 'directivo') return <Navigate to="/vehiculos" replace />
   return null
 }
 

@@ -3,7 +3,6 @@ import { suscribirVehiculos } from '../features/vehiculos/vehiculosApi'
 import { suscribirReservas, crearReserva, cancelarReserva, verificarDisponibilidad } from '../features/reservas/reservasApi'
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
-import { suscribirTodosLosClientes } from '../features/clientes/clientesApi'
 import { diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 
@@ -129,7 +128,7 @@ export default function ReservasPage() {
   const [reservas, setReservas] = useState([])
   const [picoYPlacaConfig, setPicoYPlacaConfig] = useState(null)
   const [comerciales, setComerciales] = useState([])
-  const [clientes, setClientes] = useState([])
+  const [directivos, setDirectivos] = useState([])
   const [mostrarCanceladas, setMostrarCanceladas] = useState(false)
 
   const [vehiculoId, setVehiculoId] = useState('')
@@ -146,12 +145,16 @@ export default function ReservasPage() {
   useEffect(() => suscribirVehiculos(setVehiculos), [])
   useEffect(() => suscribirReservas(setReservas), [])
   useEffect(() => suscribirPicoYPlacaConfig(setPicoYPlacaConfig), [])
-  useEffect(() => suscribirUsuarios((todos) => setComerciales(todos.filter((u) => u.rol === 'comercial'))), [])
-  useEffect(() => suscribirTodosLosClientes(setClientes), [])
+  useEffect(() => {
+    return suscribirUsuarios((todos) => {
+      setComerciales(todos.filter((u) => u.rol === 'comercial'))
+      setDirectivos(todos.filter((u) => u.rol === 'directivo'))
+    })
+  }, [])
 
   const vehiculosPorId = useMemo(() => Object.fromEntries(vehiculos.map((v) => [v.id, v])), [vehiculos])
   const reservasVisibles = reservas.filter((r) => mostrarCanceladas || r.estado === 'activa')
-  const listaPersonas = quienTipo === 'comercial' ? comerciales : quienTipo === 'cliente' ? clientes : []
+  const listaPersonas = quienTipo === 'comercial' ? comerciales : quienTipo === 'directivo' ? directivos : []
 
   function handleCambiarQuienTipo(nuevoTipo) {
     setQuienTipo(nuevoTipo)
@@ -160,7 +163,7 @@ export default function ReservasPage() {
   }
 
   function nombreQuienReserva() {
-    if (quienTipo === 'directivo') return quienNombreLibre.trim()
+    if (quienTipo === 'cliente') return quienNombreLibre.trim()
     if (quienSeleccion === 'otro') return quienNombreLibre.trim()
     return listaPersonas.find((p) => p.id === quienSeleccion)?.nombre ?? ''
   }
@@ -277,10 +280,10 @@ export default function ReservasPage() {
             <option value="directivo">Directivo</option>
           </select>
 
-          {quienTipo === 'directivo' ? (
+          {quienTipo === 'cliente' ? (
             <input
               required
-              placeholder="Nombre del directivo"
+              placeholder="Nombre del cliente"
               value={quienNombreLibre}
               onChange={(e) => setQuienNombreLibre(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
@@ -293,7 +296,7 @@ export default function ReservasPage() {
                 onChange={(e) => setQuienSeleccion(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               >
-                <option value="">Selecciona {quienTipo === 'comercial' ? 'comercial' : 'cliente'}</option>
+                <option value="">Selecciona {quienTipo === 'comercial' ? 'comercial' : 'directivo'}</option>
                 {listaPersonas.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.nombre}

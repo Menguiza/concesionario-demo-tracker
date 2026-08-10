@@ -40,12 +40,6 @@ export function suscribirClientesDeComercial(comercialId, callback) {
   })
 }
 
-export function suscribirTodosLosClientes(callback) {
-  return onSnapshot(collection(db, 'clientes'), (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-  })
-}
-
 export async function contarClientesEfectivosEnRango(comercialId, desde, hasta) {
   const q = query(
     collection(db, 'clientes'),

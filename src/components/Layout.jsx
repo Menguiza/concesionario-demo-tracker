@@ -20,6 +20,10 @@ const LINKS_POR_ROL = {
     { to: '/vehiculos', label: 'Vehículos' },
     { to: '/reservas', label: 'Reservas' },
   ],
+  directivo: [
+    { to: '/vehiculos', label: 'Vehículos' },
+    { to: '/reservas', label: 'Reservas' },
+  ],
 }
 
 export default function Layout() {
