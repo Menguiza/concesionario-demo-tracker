@@ -5,6 +5,9 @@ import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
 import { diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
+import { useAuth } from '../context/AuthContext'
+
+const ROLES_QUE_PUEDEN_GESTIONAR = ['admin', 'anfitriona', 'directivo']
 
 function formatoFechaHora(timestamp) {
   return timestamp.toDate().toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
@@ -124,6 +127,8 @@ function CalendarioReservas({ reservas, vehiculosPorId }) {
 }
 
 export default function ReservasPage() {
+  const { rol } = useAuth()
+  const puedeGestionar = ROLES_QUE_PUEDEN_GESTIONAR.includes(rol)
   const [vehiculos, setVehiculos] = useState([])
   const [reservas, setReservas] = useState([])
   const [picoYPlacaConfig, setPicoYPlacaConfig] = useState(null)
@@ -232,6 +237,13 @@ export default function ReservasPage() {
     <div className="space-y-6">
       <h1 className="text-lg font-semibold text-gray-900">Reservas de vehículos</h1>
 
+      {!puedeGestionar && (
+        <p className="text-sm text-gray-600 bg-gray-100 rounded-lg p-3">
+          Puedes ver la disponibilidad de los vehículos aquí. Para reservar uno, pídeselo a la anfitriona.
+        </p>
+      )}
+
+      {puedeGestionar && (
       <form onSubmit={handleCrear} className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
         <h2 className="text-sm font-semibold text-gray-900">Nueva reserva</h2>
         <select
@@ -327,6 +339,7 @@ export default function ReservasPage() {
         </button>
         {mensaje && <p className="text-sm text-gray-600">{mensaje}</p>}
       </form>
+      )}
 
       <div className="flex gap-2">
         <button
@@ -374,7 +387,7 @@ export default function ReservasPage() {
                     {r.solicitadoPor?.tipo}: {r.solicitadoPor?.nombre}
                     {r.motivo && ` · ${r.motivo}`}
                   </p>
-                  {r.estado === 'activa' && (
+                  {puedeGestionar && r.estado === 'activa' && (
                     <button onClick={() => handleCancelar(r.id)} className="text-xs text-red-700 underline">
                       Cancelar reserva
                     </button>

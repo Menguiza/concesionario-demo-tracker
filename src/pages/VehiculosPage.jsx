@@ -105,6 +105,11 @@ function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
       return
     }
 
+    if (quienTipo === 'cliente' && !documento) {
+      setError('Cuando es un cliente, el documento firmado escaneado es obligatorio.')
+      return
+    }
+
     if (bloqueadoPorPicoYPlaca) {
       const continuar = window.confirm(
         `${vehiculo.placa} tiene pico y placa hoy. Solo continúa si tienes autorización explícita para usarlo de todas formas. ¿Confirmas que sí?`
@@ -182,14 +187,16 @@ function FormularioMovimiento({ vehiculo, picoYPlacaConfig, onCerrar }) {
         textoVacio="Toca para grabar o elegir un video"
         onChange={(e) => setVideo(e.target.files[0] ?? null)}
       />
-      <CampoArchivo
-        label="Documento firmado escaneado (opcional)"
-        icono="documento"
-        accept="image/*,application/pdf"
-        archivos={documento ? [documento] : []}
-        textoVacio="Toca para adjuntar el documento"
-        onChange={(e) => setDocumento(e.target.files[0] ?? null)}
-      />
+      {quienTipo === 'cliente' && (
+        <CampoArchivo
+          label="Documento firmado escaneado (obligatorio con clientes)"
+          icono="documento"
+          accept="image/*,application/pdf"
+          archivos={documento ? [documento] : []}
+          textoVacio="Toca para adjuntar el documento"
+          onChange={(e) => setDocumento(e.target.files[0] ?? null)}
+        />
+      )}
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" disabled={enviando} className="rounded-lg bg-gray-900 text-white px-4 py-2 text-sm disabled:opacity-50">

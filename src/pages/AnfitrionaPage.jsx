@@ -14,6 +14,10 @@ import { estaEnHorario } from '../lib/horario'
 import { rangoSemanaPasada } from '../lib/fechas'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 
+function hoyYYYYMMDD() {
+  return new Date().toISOString().slice(0, 10)
+}
+
 export default function AnfitrionaPage() {
   const [equipos, setEquipos] = useState([])
   const [usuarios, setUsuarios] = useState([])
@@ -85,14 +89,15 @@ export default function AnfitrionaPage() {
       return
     }
 
-    const llegadasDeHoy = equipoId === equipoActivoId ? (cola?.llegadas ?? {}) : {}
+    const llegadasCrudas = equipoId === equipoActivoId ? (cola?.llegadas ?? {}) : {}
+    const hoy = hoyYYYYMMDD()
 
     try {
       const conteos = await Promise.all(
         miembros.map(async (m) => ({
           id: m.id,
           clientesEfectivosSemanaPasada: await contarClientesEfectivosEnRango(m.id, desde, hasta),
-          horaLlegadaHoy: llegadasDeHoy[m.id] ?? null,
+          horaLlegadaHoy: llegadasCrudas[m.id]?.fecha === hoy ? llegadasCrudas[m.id].horaISO : null,
         }))
       )
 
@@ -256,7 +261,7 @@ export default function AnfitrionaPage() {
           const comercial = comercialesPorId[id]
           const ocupado = cola.ocupados?.includes(id)
           const enHorario = comercial ? estaEnHorario(comercial.horarioSemanal) : false
-          const llegada = cola.llegadas?.[id]
+          const llegada = cola.llegadas?.[id]?.fecha === hoyYYYYMMDD() ? cola.llegadas[id] : null
           return (
             <li key={id} className="bg-white rounded-lg border border-gray-200 px-3 py-3 space-y-2">
               <p className="text-sm font-medium text-gray-900">
@@ -267,7 +272,7 @@ export default function AnfitrionaPage() {
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-gray-500">
                   {llegada
-                    ? `Llegó hoy a las ${new Date(llegada).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`
+                    ? `Llegó hoy a las ${new Date(llegada.horaISO).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}`
                     : 'Todavía no ha marcado llegada hoy'}
                 </span>
                 {!llegada && (

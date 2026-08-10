@@ -11,6 +11,9 @@ service cloud.firestore {
     function esAnfitriona() {
       return request.auth != null && rolDe(request.auth.uid) == 'anfitriona';
     }
+    function esDirectivo() {
+      return request.auth != null && rolDe(request.auth.uid) == 'directivo';
+    }
     function autenticado() {
       return request.auth != null;
     }
@@ -58,7 +61,8 @@ service cloud.firestore {
     }
 
     match /reservas/{id} {
-      allow read, write: if autenticado();
+      allow read: if autenticado();
+      allow write: if esAdmin() || esAnfitriona() || esDirectivo();
     }
 
     match /picoYPlacaConfig/{id} {

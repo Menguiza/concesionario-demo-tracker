@@ -32,8 +32,8 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <nav className="flex gap-4">
+      <header className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <nav className="flex flex-wrap gap-x-4 gap-y-1.5">
           {links.map((link) => (
             <NavLink
               key={link.to}
@@ -46,9 +46,9 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">{perfil?.nombre}</span>
-          <button onClick={() => signOut(auth)} className="text-sm text-gray-500 underline">
+        <div className="flex items-center justify-between gap-3 sm:justify-end">
+          <span className="text-sm text-gray-500 truncate">{perfil?.nombre}</span>
+          <button onClick={() => signOut(auth)} className="text-sm text-gray-500 underline shrink-0">
             Salir
           </button>
         </div>
