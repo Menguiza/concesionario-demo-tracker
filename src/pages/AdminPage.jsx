@@ -112,6 +112,7 @@ function SeccionEquipos({ equipos, usuarios }) {
 
 function SeccionUsuarios({ equipos }) {
   const [nombre, setNombre] = useState('')
+  const [telefono, setTelefono] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [rol, setRol] = useState('comercial')
@@ -129,12 +130,14 @@ function SeccionUsuarios({ equipos }) {
         email,
         password,
         nombre,
+        telefono,
         rol,
         equipoId: rol === 'comercial' ? equipoId || null : null,
         horarioSemanal: rol === 'comercial' ? horario : null,
       })
       setMensaje(`Cuenta creada para ${nombre}.`)
       setNombre('')
+      setTelefono('')
       setEmail('')
       setPassword('')
       setEquipoId('')
@@ -151,6 +154,14 @@ function SeccionUsuarios({ equipos }) {
       <h2 className="text-sm font-semibold text-gray-900">Crear cuenta de staff</h2>
       <form onSubmit={handleCrear} className="space-y-2" autoComplete="off">
         <input required placeholder="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+        <input
+          required
+          type="tel"
+          placeholder="Número de contacto"
+          value={telefono}
+          onChange={(e) => setTelefono(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        />
         <input
           required
           type="email"
@@ -209,8 +220,11 @@ function SeccionUsuarios({ equipos }) {
 function FilaUsuarioExistente({ usuario, equipos }) {
   const [expandido, setExpandido] = useState(false)
   const [horario, setHorario] = useState(usuario.horarioSemanal ?? horarioVacio())
+  const [telefono, setTelefono] = useState(usuario.telefono ?? '')
   const [guardando, setGuardando] = useState(false)
+  const [guardandoTelefono, setGuardandoTelefono] = useState(false)
   const [mensaje, setMensaje] = useState('')
+  const [mensajeTelefono, setMensajeTelefono] = useState('')
 
   const equiposDelComercial = equipos.filter((e) => e.miembros.includes(usuario.id)).map((e) => e.nombre)
   const esComercial = usuario.rol === 'comercial'
@@ -232,8 +246,21 @@ function FilaUsuarioExistente({ usuario, equipos }) {
     }
   }
 
+  async function handleGuardarTelefono() {
+    setGuardandoTelefono(true)
+    setMensajeTelefono('')
+    try {
+      await actualizarUsuario(usuario.id, { telefono })
+      setMensajeTelefono('Guardado.')
+    } catch (err) {
+      setMensajeTelefono(mensajeErrorAmigable(err))
+    } finally {
+      setGuardandoTelefono(false)
+    }
+  }
+
   return (
-    <div className="border-t border-gray-100 py-2">
+    <div className="border-t border-gray-100 py-2 space-y-2">
       <div className="flex items-center justify-between gap-2">
         <button
           type="button"
@@ -254,6 +281,24 @@ function FilaUsuarioExistente({ usuario, equipos }) {
           <input type="checkbox" checked={usuario.activo !== false} onChange={toggleActivo} />
           Activo
         </label>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input
+          type="tel"
+          placeholder="Número de contacto"
+          value={telefono}
+          onChange={(e) => setTelefono(e.target.value)}
+          className="flex-1 text-xs rounded-lg border border-gray-300 px-2 py-1"
+        />
+        <button
+          onClick={handleGuardarTelefono}
+          disabled={guardandoTelefono}
+          className="text-xs rounded-lg bg-gray-900 text-white px-2 py-1 disabled:opacity-50 shrink-0"
+        >
+          {guardandoTelefono ? 'Guardando…' : 'Guardar'}
+        </button>
+        {mensajeTelefono && <span className="text-xs text-gray-500 shrink-0">{mensajeTelefono}</span>}
       </div>
 
       {esComercial && expandido && (

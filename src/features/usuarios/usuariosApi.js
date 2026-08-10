@@ -16,13 +16,14 @@ export function suscribirUsuarios(callback) {
 // equipo vive solo en equipos.miembros (un comercial puede estar en varios);
 // aquí no se guarda ningún equipoId en el usuario para evitar dos fuentes
 // de verdad desincronizadas.
-export async function crearUsuarioStaff({ email, password, nombre, rol, equipoId, horarioSemanal }) {
+export async function crearUsuarioStaff({ email, password, nombre, telefono, rol, equipoId, horarioSemanal }) {
   const secondaryApp = initializeApp(app.options, 'secondary-' + Date.now())
   const secondaryAuth = getAuth(secondaryApp)
   try {
     const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password)
     await setDoc(doc(db, 'usuarios', cred.user.uid), {
       nombre,
+      telefono,
       rol,
       horarioSemanal: horarioSemanal ?? null,
       activo: true,

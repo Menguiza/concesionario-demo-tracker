@@ -118,10 +118,10 @@ export default function AnfitrionaPage() {
     ? elegirYRotar(cola.orden, new Set(cola.ocupados ?? []), idsEnHorarioAhora()).elegido
     : null
 
-  async function ocuparConCliente(comercialId, clienteId) {
+  async function ocuparConCliente(comercialId, cliente) {
     const ocupadosActuales = cola.ocupados ?? []
     await marcarOcupado(equipoActivoId, comercialId, true, ocupadosActuales)
-    await establecerClienteActual(equipoActivoId, comercialId, clienteId, cola.clienteActual ?? {})
+    await establecerClienteActual(equipoActivoId, comercialId, cliente, cola.clienteActual ?? {})
   }
 
   async function handleAsignar(e) {
@@ -144,7 +144,7 @@ export default function AnfitrionaPage() {
           comercialSolicitado: true,
         })
         if (tipoCliente === 'nuevo') await actualizarOrden(equipoActivoId, nuevoOrden)
-        await ocuparConCliente(comercialEspecificoId, clienteRef.id)
+        await ocuparConCliente(comercialEspecificoId, { id: clienteRef.id, nombre: nombreCliente })
         setMensaje(`Cliente asignado a ${comercialesPorId[comercialEspecificoId]?.nombre ?? 'comercial'}.`)
       } else {
         const idsOcupados = new Set(cola.ocupados ?? [])
@@ -161,7 +161,7 @@ export default function AnfitrionaPage() {
           comercialSolicitado: false,
         })
         await actualizarOrden(equipoActivoId, nuevoOrden)
-        await ocuparConCliente(elegido, clienteRef.id)
+        await ocuparConCliente(elegido, { id: clienteRef.id, nombre: nombreCliente })
         setMensaje(`Cliente asignado a ${comercialesPorId[elegido]?.nombre ?? 'comercial'}.`)
       }
     } catch (err) {
@@ -183,9 +183,9 @@ export default function AnfitrionaPage() {
   async function toggleOcupado(comercialId) {
     const ocupadosActuales = cola.ocupados ?? []
     const yaOcupado = ocupadosActuales.includes(comercialId)
-    const clienteActualId = cola.clienteActual?.[comercialId]
+    const clienteActual = cola.clienteActual?.[comercialId]
 
-    if (yaOcupado && clienteActualId) {
+    if (yaOcupado && clienteActual) {
       setResolviendoId(comercialId)
       setMostrandoMotivoId(null)
       return
@@ -195,9 +195,9 @@ export default function AnfitrionaPage() {
   }
 
   async function resolverYLiberar(comercialId, esEfectivo) {
-    const clienteActualId = cola.clienteActual?.[comercialId]
+    const clienteActual = cola.clienteActual?.[comercialId]
     if (!esEfectivo) {
-      await marcarDescarte(clienteActualId, motivoSeleccionado)
+      await marcarDescarte(clienteActual.id, motivoSeleccionado)
     }
     await marcarOcupado(equipoActivoId, comercialId, false, cola.ocupados ?? [])
     await establecerClienteActual(equipoActivoId, comercialId, null, cola.clienteActual ?? {})
@@ -306,9 +306,16 @@ export default function AnfitrionaPage() {
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium text-gray-900">
-                  {i + 1}. {comercial?.nombre ?? id}
-                </p>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {i + 1}. {comercial?.nombre ?? id}
+                  </p>
+                  {comercial?.telefono && (
+                    <a href={`tel:${comercial.telefono}`} className="text-xs text-gray-500 underline">
+                      {comercial.telefono}
+                    </a>
+                  )}
+                </div>
                 {esSiguiente && (
                   <span className="text-xs rounded-full bg-blue-600 text-white px-2 py-0.5 shrink-0">Siguiente</span>
                 )}
@@ -333,7 +340,9 @@ export default function AnfitrionaPage() {
 
               {resolviendoId === id ? (
                 <div className="bg-gray-50 rounded-lg p-2 space-y-2">
-                  <p className="text-xs text-gray-700">¿El cliente que atendió fue efectivo?</p>
+                  <p className="text-xs text-gray-700">
+                    ¿{cola.clienteActual?.[id]?.nombre ?? 'El cliente'} fue efectivo?
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => resolverYLiberar(id, true)}
@@ -372,7 +381,13 @@ export default function AnfitrionaPage() {
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-gray-500">{ocupado ? 'Atendiendo a un cliente ahora' : 'Puede recibir un cliente'}</span>
+                  <span className="text-xs text-gray-500">
+                    {ocupado
+                      ? cola.clienteActual?.[id]
+                        ? `Atendiendo a ${cola.clienteActual[id].nombre}`
+                        : 'No disponible'
+                      : 'Puede recibir un cliente'}
+                  </span>
                   <button
                     onClick={() => toggleOcupado(id)}
                     className={`text-xs rounded-full px-3 py-1 shrink-0 ${ocupado ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}
