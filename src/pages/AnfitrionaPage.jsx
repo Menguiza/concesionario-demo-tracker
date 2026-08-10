@@ -25,6 +25,7 @@ export default function AnfitrionaPage() {
   const [tipoCliente, setTipoCliente] = useState('nuevo')
   const [pideEspecifico, setPideEspecifico] = useState(false)
   const [comercialEspecificoId, setComercialEspecificoId] = useState('')
+  const [mostrarCambioEquipo, setMostrarCambioEquipo] = useState(false)
 
   useEffect(() => suscribirEquipos(setEquipos), [])
   useEffect(() => suscribirUsuarios(setUsuarios), [])
@@ -169,10 +170,39 @@ export default function AnfitrionaPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900">Cola — {equipoActivo?.nombre}</h1>
-        <button onClick={() => handleIniciarSemana(equipoActivoId)} className="text-sm text-gray-500 underline">
-          Reiniciar orden de la semana
-        </button>
+        <div className="flex gap-3">
+          <button onClick={() => handleIniciarSemana(equipoActivoId)} className="text-sm text-gray-500 underline">
+            Reiniciar orden de la semana
+          </button>
+          <button onClick={() => setMostrarCambioEquipo((v) => !v)} className="text-sm text-gray-500 underline">
+            Cambiar equipo
+          </button>
+        </div>
       </div>
+
+      {mostrarCambioEquipo && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+          <p className="text-xs text-amber-800">
+            Esto reemplaza la cola actual con la del equipo elegido, recalculada desde cero. Úsalo solo si el equipo activo quedó mal asignado.
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {equipos
+              .filter((e) => e.id !== equipoActivoId)
+              .map((e) => (
+                <button
+                  key={e.id}
+                  onClick={async () => {
+                    await handleIniciarSemana(e.id)
+                    setMostrarCambioEquipo(false)
+                  }}
+                  className="rounded-lg bg-white border border-amber-300 px-3 py-1.5 text-sm text-amber-900"
+                >
+                  {e.nombre}
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
 
       <ol className="space-y-2">
         {(cola?.orden ?? []).map((id, i) => {
