@@ -76,6 +76,7 @@ function SeccionEquipos({ equipos, usuarios }) {
   return (
     <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
       <h2 className="text-sm font-semibold text-gray-900">Equipos</h2>
+      <p className="text-xs text-gray-500">Un comercial puede estar en varios equipos — se marca aquí, este es el único lugar donde se edita.</p>
       <form onSubmit={handleCrear} className="flex gap-2">
         <input
           required
@@ -136,6 +137,7 @@ function SeccionUsuarios({ equipos }) {
       setNombre('')
       setEmail('')
       setPassword('')
+      setEquipoId('')
       setHorario(horarioVacio())
     } catch (err) {
       setMensaje(mensajeErrorAmigable(err))
@@ -169,14 +171,17 @@ function SeccionUsuarios({ equipos }) {
         </select>
         {rol === 'comercial' && (
           <>
-            <select value={equipoId} onChange={(e) => setEquipoId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-              <option value="">Sin equipo (asignar después)</option>
-              {equipos.map((eq) => (
-                <option key={eq.id} value={eq.id}>
-                  {eq.nombre}
-                </option>
-              ))}
-            </select>
+            <div>
+              <select value={equipoId} onChange={(e) => setEquipoId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                <option value="">Sin equipo (asignar después)</option>
+                {equipos.map((eq) => (
+                  <option key={eq.id} value={eq.id}>
+                    {eq.nombre}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">Si necesita estar en más de un equipo, agrega los demás luego desde "Equipos".</p>
+            </div>
             <EditorHorario horario={horario} onChange={setHorario} />
           </>
         )}
@@ -190,21 +195,23 @@ function SeccionUsuarios({ equipos }) {
 }
 
 function FilaUsuarioExistente({ usuario, equipos }) {
-  const [equipoId, setEquipoId] = useState(usuario.equipoId ?? '')
+  const [expandido, setExpandido] = useState(false)
   const [horario, setHorario] = useState(usuario.horarioSemanal ?? horarioVacio())
-  const [activo, setActivo] = useState(usuario.activo ?? true)
   const [guardando, setGuardando] = useState(false)
   const [mensaje, setMensaje] = useState('')
 
-  async function handleGuardar() {
+  const equiposDelComercial = equipos.filter((e) => e.miembros.includes(usuario.id)).map((e) => e.nombre)
+  const esComercial = usuario.rol === 'comercial'
+
+  async function toggleActivo() {
+    await actualizarUsuario(usuario.id, { activo: !(usuario.activo !== false) })
+  }
+
+  async function handleGuardarHorario() {
     setGuardando(true)
     setMensaje('')
     try {
-      await actualizarUsuario(usuario.id, {
-        equipoId: equipoId || null,
-        horarioSemanal: usuario.rol === 'comercial' ? horario : null,
-        activo,
-      })
+      await actualizarUsuario(usuario.id, { horarioSemanal: horario })
       setMensaje('Guardado.')
     } catch (err) {
       setMensaje(mensajeErrorAmigable(err))
@@ -214,45 +221,44 @@ function FilaUsuarioExistente({ usuario, equipos }) {
   }
 
   return (
-    <div className="border-t border-gray-100 pt-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-900">{usuario.nombre}</p>
-          <p className="text-xs text-gray-500 capitalize">{usuario.rol}</p>
-        </div>
-        <label className="flex items-center gap-1 text-xs">
-          <input type="checkbox" checked={activo} onChange={(e) => setActivo(e.target.checked)} />
+    <div className="border-t border-gray-100 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => esComercial && setExpandido((v) => !v)}
+          className={`flex-1 text-left ${esComercial ? 'cursor-pointer' : 'cursor-default'}`}
+        >
+          <p className="text-sm font-medium text-gray-900">
+            {esComercial && <span className="text-gray-400 mr-1">{expandido ? '▾' : '▸'}</span>}
+            {usuario.nombre}
+          </p>
+          <p className="text-xs text-gray-500 capitalize">
+            {usuario.rol}
+            {equiposDelComercial.length > 0 && ` · ${equiposDelComercial.join(', ')}`}
+            {esComercial && equiposDelComercial.length === 0 && ' · sin equipo'}
+          </p>
+        </button>
+        <label className="flex items-center gap-1 text-xs shrink-0">
+          <input type="checkbox" checked={usuario.activo !== false} onChange={toggleActivo} />
           Activo
         </label>
       </div>
-      {!activo && (
-        <p className="text-xs text-amber-700">
-          Inactivo: no va a aparecer disponible en ninguna cola aunque siga en un equipo.
-        </p>
-      )}
-      {usuario.rol === 'comercial' && (
-        <>
-          <select value={equipoId} onChange={(e) => setEquipoId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-            <option value="">Sin equipo</option>
-            {equipos.map((eq) => (
-              <option key={eq.id} value={eq.id}>
-                {eq.nombre}
-              </option>
-            ))}
-          </select>
+
+      {esComercial && expandido && (
+        <div className="mt-2 pl-4 space-y-2">
           <EditorHorario horario={horario} onChange={setHorario} />
-        </>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleGuardarHorario}
+              disabled={guardando}
+              className="rounded-lg bg-gray-900 text-white px-3 py-1.5 text-xs disabled:opacity-50"
+            >
+              {guardando ? 'Guardando…' : 'Guardar horario'}
+            </button>
+            {mensaje && <p className="text-xs text-gray-500">{mensaje}</p>}
+          </div>
+        </div>
       )}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={handleGuardar}
-          disabled={guardando}
-          className="rounded-lg bg-gray-900 text-white px-3 py-1.5 text-xs disabled:opacity-50"
-        >
-          {guardando ? 'Guardando…' : 'Guardar cambios'}
-        </button>
-        {mensaje && <p className="text-xs text-gray-500">{mensaje}</p>}
-      </div>
     </div>
   )
 }
@@ -260,10 +266,10 @@ function FilaUsuarioExistente({ usuario, equipos }) {
 function SeccionUsuariosExistentes({ usuarios, equipos }) {
   if (usuarios.length === 0) return null
   return (
-    <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+    <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-1">
       <h2 className="text-sm font-semibold text-gray-900">Staff existente</h2>
-      <p className="text-xs text-gray-500">
-        Corrige aquí equipo, horario o si alguien ya no está activo — no hace falta tocar nada por fuera de la app.
+      <p className="text-xs text-gray-500 mb-2">
+        Toca un comercial para editar su horario. El equipo se cambia desde la sección "Equipos".
       </p>
       {usuarios.map((u) => (
         <FilaUsuarioExistente key={u.id} usuario={u} equipos={equipos} />
@@ -318,10 +324,12 @@ export default function AdminPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-lg font-semibold text-gray-900">Administración</h1>
-      <SeccionEquipos equipos={equipos} usuarios={usuarios} />
-      <SeccionUsuarios equipos={equipos} />
-      <SeccionUsuariosExistentes usuarios={usuarios} equipos={equipos} />
-      <SeccionPicoYPlaca />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <SeccionEquipos equipos={equipos} usuarios={usuarios} />
+        <SeccionUsuarios equipos={equipos} />
+        <SeccionUsuariosExistentes usuarios={usuarios} equipos={equipos} />
+        <SeccionPicoYPlaca />
+      </div>
     </div>
   )
 }

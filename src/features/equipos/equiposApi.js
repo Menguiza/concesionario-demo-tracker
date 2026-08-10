@@ -6,6 +6,7 @@ import {
   onSnapshot,
   setDoc,
   serverTimestamp,
+  arrayUnion,
 } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 
@@ -21,6 +22,10 @@ export function crearEquipo(nombre) {
 
 export function actualizarMiembrosEquipo(equipoId, miembros) {
   return updateDoc(doc(db, 'equipos', equipoId), { miembros })
+}
+
+export function agregarComercialAEquipo(equipoId, comercialId) {
+  return updateDoc(doc(db, 'equipos', equipoId), { miembros: arrayUnion(comercialId) })
 }
 
 export function suscribirEstadoSemana(callback) {

@@ -2,6 +2,7 @@ import { initializeApp, deleteApp } from 'firebase/app'
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
 import { collection, doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore'
 import { db, app } from '../../firebase/config'
+import { agregarComercialAEquipo } from '../equipos/equiposApi'
 
 export function suscribirUsuarios(callback) {
   return onSnapshot(collection(db, 'usuarios'), (snap) => {
@@ -10,7 +11,10 @@ export function suscribirUsuarios(callback) {
 }
 
 // Crea la cuenta en una instancia secundaria de Firebase para no cerrar
-// la sesión del admin que está creando al nuevo usuario.
+// la sesión del admin que está creando al nuevo usuario. La membresía de
+// equipo vive solo en equipos.miembros (un comercial puede estar en varios);
+// aquí no se guarda ningún equipoId en el usuario para evitar dos fuentes
+// de verdad desincronizadas.
 export async function crearUsuarioStaff({ email, password, nombre, rol, equipoId, horarioSemanal }) {
   const secondaryApp = initializeApp(app.options, 'secondary-' + Date.now())
   const secondaryAuth = getAuth(secondaryApp)
@@ -19,10 +23,12 @@ export async function crearUsuarioStaff({ email, password, nombre, rol, equipoId
     await setDoc(doc(db, 'usuarios', cred.user.uid), {
       nombre,
       rol,
-      equipoId: equipoId ?? null,
       horarioSemanal: horarioSemanal ?? null,
       activo: true,
     })
+    if (equipoId) {
+      await agregarComercialAEquipo(equipoId, cred.user.uid)
+    }
     await signOut(secondaryAuth)
     return cred.user.uid
   } finally {
