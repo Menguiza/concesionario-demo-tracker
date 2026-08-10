@@ -126,7 +126,7 @@ function SeccionUsuarios({ equipos }) {
     setEnviando(true)
     setMensaje('')
     try {
-      await crearUsuarioStaff({
+      const { correoEnviado } = await crearUsuarioStaff({
         email,
         password,
         nombre,
@@ -135,7 +135,11 @@ function SeccionUsuarios({ equipos }) {
         equipoId: rol === 'comercial' ? equipoId || null : null,
         horarioSemanal: rol === 'comercial' ? horario : null,
       })
-      setMensaje(`Cuenta creada para ${nombre}.`)
+      setMensaje(
+        correoEnviado
+          ? `Cuenta creada para ${nombre}. Le va a llegar un correo para poner su contraseña.`
+          : `Cuenta creada para ${nombre}, pero no se pudo enviar el correo de contraseña (puede que Firebase esté limitando envíos por ahora). Puede entrar con la contraseña temporal, o más tarde usar "Olvidaste tu contraseña" en el login.`
+      )
       setNombre('')
       setTelefono('')
       setEmail('')

@@ -42,9 +42,20 @@ export async function crearUsuarioStaff({ email, password, nombre, telefono, rol
     if (equipoId) {
       await agregarComercialAEquipo(equipoId, cred.user.uid)
     }
-    await sendPasswordResetEmail(secondaryAuth, email, urlDeRetornoAlLogin())
+
+    // La cuenta y el perfil ya quedaron creados en este punto — si el correo
+    // falla (límite de envíos de Firebase, red, etc.) no debe verse como que
+    // la creación completa falló, porque no fue así.
+    let correoEnviado = true
+    try {
+      await sendPasswordResetEmail(secondaryAuth, email, urlDeRetornoAlLogin())
+    } catch (err) {
+      console.warn('No se pudo enviar el correo de restablecer contraseña:', err)
+      correoEnviado = false
+    }
+
     await signOut(secondaryAuth)
-    return cred.user.uid
+    return { uid: cred.user.uid, correoEnviado }
   } finally {
     await deleteApp(secondaryApp)
   }
