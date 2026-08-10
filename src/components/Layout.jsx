@@ -51,6 +51,9 @@ export default function Layout() {
         </nav>
         <div className="flex items-center justify-between gap-3 sm:justify-end">
           <span className="text-sm text-gray-500 truncate">{perfil?.nombre}</span>
+          <NavLink to="/cambiar-password" className="text-sm text-gray-500 underline shrink-0">
+            Cambiar contraseña
+          </NavLink>
           <button onClick={() => signOut(auth)} className="text-sm text-gray-500 underline shrink-0">
             Salir
           </button>

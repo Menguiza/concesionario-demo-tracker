@@ -137,8 +137,8 @@ function SeccionUsuarios({ equipos }) {
       })
       setMensaje(
         correoEnviado
-          ? `Cuenta creada para ${nombre}. Le va a llegar un correo para poner su contraseña.`
-          : `Cuenta creada para ${nombre}, pero no se pudo enviar el correo de contraseña (puede que Firebase esté limitando envíos por ahora). Puede entrar con la contraseña temporal, o más tarde usar "Olvidaste tu contraseña" en el login.`
+          ? `Cuenta creada para ${nombre}. Le va a llegar un correo para poner su contraseña — si no le llega, pásale la contraseña temporal directo y que la cambie desde "Cambiar contraseña" ya adentro de la app.`
+          : `Cuenta creada para ${nombre}. El correo automático no salió (hay un problema del lado de Firebase ahora mismo, no es nada tuyo) — pásale la contraseña temporal por teléfono/WhatsApp y que la cambie ella misma desde "Cambiar contraseña" cuando entre.`
       )
       setNombre('')
       setTelefono('')

@@ -9,6 +9,7 @@ import ComercialPage from './pages/ComercialPage'
 import AdminPage from './pages/AdminPage'
 import ReservasPage from './pages/ReservasPage'
 import ComercialesPage from './pages/ComercialesPage'
+import CambiarPasswordPage from './pages/CambiarPasswordPage'
 
 function InicioRedirect() {
   const { rol } = useAuth()
@@ -32,6 +33,7 @@ export default function App() {
             }
           >
             <Route path="/" element={<InicioRedirect />} />
+            <Route path="/cambiar-password" element={<CambiarPasswordPage />} />
             <Route
               path="/anfitriona"
               element={
