@@ -34,12 +34,31 @@ export function suscribirEstadoSemana(callback) {
   })
 }
 
-export async function fijarEquipoActivo(equipoId) {
+// Fijar equipo activo "a mano" (Iniciar semana / Reiniciar orden / Cambiar
+// equipo) siempre re-ancla la rotación: hoy pasa a ser el día 0 de ese
+// equipo, y la alternancia automática cuenta días hábiles desde acá.
+export async function fijarEquipoActivo(equipoId, hoyYYYYMMDD) {
   await setDoc(
     doc(db, 'estadoSemana', 'actual'),
-    { equipoActivoId: equipoId, fechaInicioSemana: serverTimestamp() },
+    {
+      equipoActivoId: equipoId,
+      equipoInicialId: equipoId,
+      fechaInicioNegocio: hoyYYYYMMDD,
+      ultimoDiaActivado: hoyYYYYMMDD,
+      fechaInicioSemana: serverTimestamp(),
+    },
     { merge: true }
   )
+  await addDoc(collection(db, 'historialEquipos'), {
+    equipoId,
+    fecha: serverTimestamp(),
+  })
+}
+
+// Avanza el equipo activo del día por la rotación automática, sin mover el
+// ancla (equipoInicialId/fechaInicioNegocio quedan igual).
+export async function avanzarEquipoDelDia(equipoId, hoyYYYYMMDD) {
+  await updateDoc(doc(db, 'estadoSemana', 'actual'), { equipoActivoId: equipoId, ultimoDiaActivado: hoyYYYYMMDD })
   await addDoc(collection(db, 'historialEquipos'), {
     equipoId,
     fecha: serverTimestamp(),

@@ -13,6 +13,12 @@ export function fechaLocalYYYYMMDD(fecha = new Date()) {
   return `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`
 }
 
+// "martes 11 de agosto de 2026" — para donde una fecha corta (11/8/2026) no
+// deja ver de una a qué día de la semana corresponde.
+export function formatoFechaLarga(fecha) {
+  return fecha.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+}
+
 export function rangoSemanaPasada(ahora = new Date()) {
   const diffAlLunes = (ahora.getDay() + 6) % 7
   const lunesEstaSemana = new Date(ahora)

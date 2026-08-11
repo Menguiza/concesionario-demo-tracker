@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { suscribirEquipos, crearEquipo, actualizarMiembrosEquipo } from '../features/equipos/equiposApi'
 import { suscribirUsuarios, crearUsuarioStaff, actualizarUsuario } from '../features/usuarios/usuariosApi'
 import { suscribirPicoYPlacaConfig, guardarPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
-import { DIAS_SEMANA } from '../lib/horario'
+import { DIAS_SEMANA, ETIQUETA_DIA } from '../lib/horario'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { coincideBusqueda } from '../lib/texto'
 import { INPUT, INPUT_SM } from '../lib/estilos'
@@ -29,14 +29,14 @@ function EditorHorario({ horario, onChange }) {
             horario[dia].activo ? 'bg-gray-50' : ''
           }`}
         >
-          <label className="flex items-center gap-1.5 w-24 capitalize cursor-pointer">
+          <label className="flex items-center gap-1.5 w-24 cursor-pointer">
             <input
               type="checkbox"
               checked={horario[dia].activo}
               onChange={(e) => onChange({ ...horario, [dia]: { ...horario[dia], activo: e.target.checked } })}
               className="rounded border-gray-300 text-gray-900 focus:ring-gray-900/10"
             />
-            {dia}
+            {ETIQUETA_DIA[dia]}
           </label>
           <input
             type="time"
@@ -399,7 +399,7 @@ function SeccionPicoYPlaca() {
       </p>
       {DIAS_SEMANA.map((dia) => (
         <div key={dia} className="flex items-center gap-2 text-xs">
-          <span className="w-20 capitalize text-gray-600">{dia}</span>
+          <span className="w-20 text-gray-600">{ETIQUETA_DIA[dia]}</span>
           <input
             placeholder="dígitos, ej: 1, 2"
             value={textoPorDia[dia]}

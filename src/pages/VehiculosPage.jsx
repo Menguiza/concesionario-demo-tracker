@@ -5,11 +5,12 @@ import { registrarMovimiento } from '../features/movimientos/movimientosApi'
 import { crearReserva, suscribirReservasDeUsuario, suscribirReservas } from '../features/reservas/reservasApi'
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
-import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
+import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango, diasSemanaPicoYPlaca } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
-import { parseFechaLocal } from '../lib/fechas'
+import { parseFechaLocal, formatoFechaLarga } from '../lib/fechas'
 import { fotosFaltantes } from '../lib/fotosVehiculo'
-import { coincideBusqueda } from '../lib/texto'
+import { coincideBusqueda, unirConY } from '../lib/texto'
+import { ETIQUETA_DIA } from '../lib/horario'
 import { INPUT } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
 import CampoArchivo from '../components/CampoArchivo'
@@ -93,10 +94,10 @@ function ConsultaPicoYPlacaRapida({ vehiculo, picoYPlacaConfig }) {
           {vehiculo.esElectricoHibrido
             ? 'Exento (eléctrico/híbrido)'
             : diasBloqueados.length > 0
-              ? `Pico y placa: ${diasBloqueados.map((d) => d.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })).join(', ')}`
+              ? `Pico y placa: ${diasBloqueados.map((d) => formatoFechaLarga(d)).join(', ')}`
               : esUnSoloDia
-                ? `Libre el ${desde.toLocaleDateString('es-CO')}`
-                : `Libre todo el rango (${desde.toLocaleDateString('es-CO')} – ${hasta.toLocaleDateString('es-CO')})`}
+                ? `Libre el ${formatoFechaLarga(desde)}`
+                : `Libre todo el rango (${formatoFechaLarga(desde)} – ${formatoFechaLarga(hasta)})`}
         </p>
       )}
     </div>
@@ -373,7 +374,33 @@ export default function VehiculosPage() {
         {vehiculos.length > 0 && <span className="text-xs text-gray-400">{vehiculos.length} en total</span>}
       </div>
 
-      {vehiculos.length === 0 && <Vacio titulo="Todavía no hay vehículos" descripcion="Un admin puede agregar el primero abajo." />}
+      {rol === 'admin' && (
+        <Tarjeta className="p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-gray-900">Agregar vehículo</h2>
+          <form onSubmit={handleCrearVehiculo} className="space-y-3">
+            <div>
+              <input
+                required
+                placeholder="Ej: ABC123"
+                value={nuevaPlaca}
+                onChange={(e) => handlePlacaChange(e.target.value)}
+                maxLength={6}
+                className={`${INPUT} uppercase`}
+              />
+              <p className="text-xs text-gray-400 mt-1">Formato: 3 letras + 3 números, sin espacios ni guion (ej: ABC123).</p>
+            </div>
+            <input placeholder="Marca / modelo" value={nuevoModelo} onChange={(e) => setNuevoModelo(e.target.value)} className={INPUT} />
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" checked={nuevoElectrico} onChange={(e) => setNuevoElectrico(e.target.checked)} />
+              Es eléctrico o híbrido (exento de pico y placa)
+            </label>
+            <Alerta tipo="error">{errorVehiculo}</Alerta>
+            <Boton type="submit">Agregar</Boton>
+          </form>
+        </Tarjeta>
+      )}
+
+      {vehiculos.length === 0 && <Vacio titulo="Todavía no hay vehículos" descripcion="Un admin puede agregar el primero arriba." />}
 
       {vehiculos.length > 0 && (
         <BarraBusqueda valor={busqueda} onChange={setBusqueda} placeholder="Buscar por placa o modelo..." />
@@ -387,6 +414,7 @@ export default function VehiculosPage() {
         {vehiculosVisibles.map((v, i) => {
           const relacion = gestionAmplia ? null : relacionPropia(v)
           const reservaAsignada = v.estado === 'disponible' ? reservaAsignadaAhora(v.id) : null
+          const diasPicoYPlaca = diasSemanaPicoYPlaca(v, picoYPlacaConfig)
           return (
             <Tarjeta key={v.id} interactiva animar className="p-4" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
               <div className="flex items-center justify-between gap-3">
@@ -400,6 +428,11 @@ export default function VehiculosPage() {
                   )}
                   {reservaAsignada && (
                     <p className="text-xs text-gray-500">Asignado a: {reservaAsignada.solicitadoPor?.nombre}</p>
+                  )}
+                  {diasPicoYPlaca.length > 0 && (
+                    <p className="text-xs text-gray-400">
+                      Pico y placa: {unirConY(diasPicoYPlaca.map((d) => ETIQUETA_DIA[d]))}
+                    </p>
                   )}
                 </div>
                 <EstadoBadge vehiculo={v} picoYPlacaConfig={picoYPlacaConfig} asignadoAhora={Boolean(reservaAsignada)} />
@@ -471,32 +504,6 @@ export default function VehiculosPage() {
           )
         })}
       </ul>
-
-      {rol === 'admin' && (
-        <Tarjeta className="p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-gray-900">Agregar vehículo</h2>
-          <form onSubmit={handleCrearVehiculo} className="space-y-3">
-            <div>
-              <input
-                required
-                placeholder="Ej: ABC123"
-                value={nuevaPlaca}
-                onChange={(e) => handlePlacaChange(e.target.value)}
-                maxLength={6}
-                className={`${INPUT} uppercase`}
-              />
-              <p className="text-xs text-gray-400 mt-1">Formato: 3 letras + 3 números, sin espacios ni guion (ej: ABC123).</p>
-            </div>
-            <input placeholder="Marca / modelo" value={nuevoModelo} onChange={(e) => setNuevoModelo(e.target.value)} className={INPUT} />
-            <label className="flex items-center gap-2 text-sm text-gray-700">
-              <input type="checkbox" checked={nuevoElectrico} onChange={(e) => setNuevoElectrico(e.target.checked)} />
-              Es eléctrico o híbrido (exento de pico y placa)
-            </label>
-            <Alerta tipo="error">{errorVehiculo}</Alerta>
-            <Boton type="submit">Agregar</Boton>
-          </form>
-        </Tarjeta>
-      )}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { suscribirEquipos, suscribirEstadoSemana, fijarEquipoActivo } from '../features/equipos/equiposApi'
+import { suscribirEquipos, suscribirEstadoSemana, fijarEquipoActivo, avanzarEquipoDelDia } from '../features/equipos/equiposApi'
 import { suscribirUsuarios, marcarLlegadaHoy } from '../features/usuarios/usuariosApi'
 import {
   suscribirColaEquipo,
@@ -9,9 +9,10 @@ import {
   establecerClienteActual,
 } from '../features/cola/colaApi'
 import { registrarCliente, marcarDescarte, contarClientesEfectivosEnRango } from '../features/clientes/clientesApi'
-import { construirOrdenInicial, elegirYRotar, asignarComercialEspecifico, pasarSinConsumirCola } from '../lib/queue'
+import { construirOrdenInicial, elegirYRotar, elegirEquipoDelDia, asignarComercialEspecifico, pasarSinConsumirCola } from '../lib/queue'
 import { estaEnHorario } from '../lib/horario'
-import { rangoSemanaPasada, fechaLocalYYYYMMDD } from '../lib/fechas'
+import { esDiaHabil, diaHabilAnterior, pasosHabilesDesde } from '../lib/diasHabiles'
+import { fechaLocalYYYYMMDD, parseFechaLocal } from '../lib/fechas'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
 import { enlaceTel } from '../lib/telefono'
@@ -82,8 +83,24 @@ export default function AnfitrionaPage() {
     [comercialesEquipo]
   )
 
-  async function handleIniciarSemana(equipoId) {
-    const { desde, hasta } = rangoSemanaPasada()
+  // Para "pide un comercial específico": cualquier comercial activo, no solo
+  // los del equipo de hoy — un cliente puede buscar puntualmente a alguien de
+  // otro equipo. Si es de otro equipo, la asignación no toca la cola de este
+  // equipo (esa rotación no le aplica a él).
+  const comercialesTodos = useMemo(() => usuarios.filter((u) => u.rol === 'comercial' && u.activo !== false), [usuarios])
+  const comercialesTodosPorId = useMemo(
+    () => Object.fromEntries(comercialesTodos.map((c) => [c.id, c])),
+    [comercialesTodos]
+  )
+  function nombreEquipoDe(comercialId) {
+    return equipos.find((e) => e.miembros.includes(comercialId))?.nombre
+  }
+
+  // El orden interno de un equipo se calcula con los clientes efectivos que
+  // atendió cada quien el día hábil inmediatamente anterior (no la semana
+  // completa) — se usa tanto al fijar el equipo a mano como en la rotación
+  // automática de abajo, para que ambos caminos calculen igual.
+  async function calcularYAplicarOrden(equipoId, hoy, { esAncla }) {
     const equipo = equipos.find((e) => e.id === equipoId)
     const miembros = usuarios.filter((u) => equipo.miembros.includes(u.id) && u.activo !== false)
 
@@ -92,25 +109,58 @@ export default function AnfitrionaPage() {
       return
     }
 
-    const hoy = fechaLocalYYYYMMDD()
+    const diaReferencia = diaHabilAnterior(hoy)
+    const inicioDia = new Date(diaReferencia)
+    inicioDia.setHours(0, 0, 0, 0)
+    const finDia = new Date(diaReferencia)
+    finDia.setHours(23, 59, 59, 999)
+    const hoyStr = fechaLocalYYYYMMDD(hoy)
 
+    const conteos = await Promise.all(
+      miembros.map(async (m) => ({
+        id: m.id,
+        clientesEfectivosDiaAnterior: await contarClientesEfectivosEnRango(m.id, inicioDia, finDia),
+        horaLlegadaHoy: m.ultimaLlegada?.fecha === hoyStr ? m.ultimaLlegada.horaISO : null,
+      }))
+    )
+
+    const orden = construirOrdenInicial(conteos)
+    if (esAncla) {
+      await fijarEquipoActivo(equipoId, hoyStr)
+    } else {
+      await avanzarEquipoDelDia(equipoId, hoyStr)
+    }
+    await inicializarColaSemana(equipoId, orden)
+    return equipo
+  }
+
+  async function handleIniciarSemana(equipoId) {
     try {
-      const conteos = await Promise.all(
-        miembros.map(async (m) => ({
-          id: m.id,
-          clientesEfectivosSemanaPasada: await contarClientesEfectivosEnRango(m.id, desde, hasta),
-          horaLlegadaHoy: m.ultimaLlegada?.fecha === hoy ? m.ultimaLlegada.horaISO : null,
-        }))
-      )
-
-      const orden = construirOrdenInicial(conteos)
-      await fijarEquipoActivo(equipoId)
-      await inicializarColaSemana(equipoId, orden)
-      setMensaje(`Semana iniciada con el equipo "${equipo.nombre}".`)
+      const equipo = await calcularYAplicarOrden(equipoId, new Date(), { esAncla: true })
+      if (equipo) setMensaje(`Semana iniciada con el equipo "${equipo.nombre}".`)
     } catch (err) {
       setMensaje(mensajeErrorAmigable(err))
     }
   }
+
+  // Rotación automática: si ya pasó a un nuevo día hábil desde la última vez
+  // que se calculó equipo+orden, se alterna solo al equipo que le toca hoy
+  // (contando cuántos días hábiles pasaron desde el ancla) — sin que nadie
+  // tenga que acordarse de darle "Cambiar equipo" cada mañana. Igual que el
+  // barrido de reservas vencidas, corre perezoso al abrir la pantalla.
+  useEffect(() => {
+    if (!estadoSemana?.equipoInicialId || !estadoSemana?.fechaInicioNegocio) return
+    if (equipos.length === 0 || usuarios.length === 0) return
+    const hoy = new Date()
+    if (!esDiaHabil(hoy)) return
+    const hoyStr = fechaLocalYYYYMMDD(hoy)
+    if (estadoSemana.ultimoDiaActivado === hoyStr) return
+
+    const pasos = pasosHabilesDesde(parseFechaLocal(estadoSemana.fechaInicioNegocio), hoy)
+    const equipoDelDiaId = elegirEquipoDelDia(equipos, estadoSemana.equipoInicialId, pasos)
+    calcularYAplicarOrden(equipoDelDiaId, hoy, { esAncla: false }).catch((err) => setMensaje(mensajeErrorAmigable(err)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estadoSemana?.ultimoDiaActivado, estadoSemana?.equipoInicialId, estadoSemana?.fechaInicioNegocio, equipos.length, usuarios.length])
 
   function idsEnHorarioAhora() {
     return new Set(
@@ -137,21 +187,43 @@ export default function AnfitrionaPage() {
 
     try {
       if (pideEspecifico && comercialEspecificoId) {
-        const nuevoOrden =
-          tipoCliente === 'nuevo'
-            ? asignarComercialEspecifico(cola.orden, comercialEspecificoId)
-            : pasarSinConsumirCola(cola.orden)
+        const persona = comercialesTodosPorId[comercialEspecificoId]
+        if (!estaEnHorario(persona?.horarioSemanal)) {
+          setMensaje(`${persona?.nombre ?? 'Ese comercial'} no está en su horario ahorita, no se le puede asignar.`)
+          return
+        }
 
-        const clienteRef = await registrarCliente({
-          nombre: nombreCliente,
-          telefono: telefonoCliente,
-          tipo: tipoCliente,
-          comercialAsignadoId: comercialEspecificoId,
-          comercialSolicitado: true,
-        })
-        if (tipoCliente === 'nuevo') await actualizarOrden(equipoActivoId, nuevoOrden)
-        await ocuparConCliente(comercialEspecificoId, { id: clienteRef.id, nombre: nombreCliente })
-        setMensaje(`Cliente asignado a ${comercialesPorId[comercialEspecificoId]?.nombre ?? 'comercial'}.`)
+        const esDelEquipoActivo = comercialesActivosEquipo.some((c) => c.id === comercialEspecificoId)
+
+        if (esDelEquipoActivo) {
+          const nuevoOrden =
+            tipoCliente === 'nuevo'
+              ? asignarComercialEspecifico(cola.orden, comercialEspecificoId)
+              : pasarSinConsumirCola(cola.orden)
+
+          const clienteRef = await registrarCliente({
+            nombre: nombreCliente,
+            telefono: telefonoCliente,
+            tipo: tipoCliente,
+            comercialAsignadoId: comercialEspecificoId,
+            comercialSolicitado: true,
+          })
+          if (tipoCliente === 'nuevo') await actualizarOrden(equipoActivoId, nuevoOrden)
+          await ocuparConCliente(comercialEspecificoId, { id: clienteRef.id, nombre: nombreCliente })
+          setMensaje(`Cliente asignado a ${persona.nombre}.`)
+        } else {
+          // Es de otro equipo: no participa de la cola de hoy, así que no se
+          // toca orden/ocupados/clienteActual de este equipo — solo queda
+          // registrado como su cliente.
+          await registrarCliente({
+            nombre: nombreCliente,
+            telefono: telefonoCliente,
+            tipo: tipoCliente,
+            comercialAsignadoId: comercialEspecificoId,
+            comercialSolicitado: true,
+          })
+          setMensaje(`Cliente asignado a ${persona.nombre} (${nombreEquipoDe(comercialEspecificoId)}) — no es del equipo de hoy, no aparece en esta fila.`)
+        }
       } else {
         const idsOcupados = new Set(cola.ocupados ?? [])
         const { elegido, nuevoOrden } = elegirYRotar(cola.orden, idsOcupados, idsEnHorarioAhora())
@@ -319,11 +391,16 @@ export default function AnfitrionaPage() {
               className={`${INPUT} animate-slide-up`}
             >
               <option value="">Selecciona comercial</option>
-              {comercialesActivosEquipo.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
+              {[...comercialesTodos]
+                .sort((a, b) => a.nombre.localeCompare(b.nombre))
+                .map((c) => {
+                  const esDelEquipoActivo = comercialesActivosEquipo.some((ca) => ca.id === c.id)
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {esDelEquipoActivo ? c.nombre : `${c.nombre} (${nombreEquipoDe(c.id) ?? 'sin equipo'})`}
+                    </option>
+                  )
+                })}
             </select>
           )}
           <Boton type="submit" className="w-full">

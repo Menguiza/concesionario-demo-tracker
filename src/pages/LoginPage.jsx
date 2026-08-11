@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { signInWithEmailAndPassword } from 'firebase/auth'
+import { signInWithEmailAndPassword, setPersistence, browserLocalPersistence, browserSessionPersistence } from 'firebase/auth'
 import { auth } from '../firebase/config'
 import { enviarCorreoRestablecerPassword } from '../features/usuarios/usuariosApi'
 import { INPUT } from '../lib/estilos'
@@ -71,6 +71,7 @@ function FormularioOlvideContrasena({ onVolver }) {
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [recordarme, setRecordarme] = useState(true)
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [mostrarOlvide, setMostrarOlvide] = useState(false)
@@ -81,6 +82,12 @@ export default function LoginPage() {
     setError('')
     setEnviando(true)
     try {
+      // Se fija la persistencia explícitamente en vez de confiar en el
+      // default implícito del SDK — en algunos navegadores de Android la
+      // sesión se perdía al salir de foco, esto lo deja sin ambigüedad.
+      // Con "recuérdame" sobrevive a cerrar el navegador; sin marcar, se
+      // cierra sola al cerrar la pestaña (útil en un equipo compartido).
+      await setPersistence(auth, recordarme ? browserLocalPersistence : browserSessionPersistence)
       await signInWithEmailAndPassword(auth, email, password)
       navigate('/')
     } catch {
@@ -110,18 +117,37 @@ export default function LoginPage() {
         <Marca />
         <div>
           <label className="block text-sm text-gray-600 mb-1">Correo</label>
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={INPUT} />
+          <input
+            type="email"
+            name="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={INPUT}
+          />
         </div>
         <div>
           <label className="block text-sm text-gray-600 mb-1">Contraseña</label>
           <input
             type="password"
+            name="password"
+            autoComplete="current-password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className={INPUT}
           />
         </div>
+        <label className="flex items-center gap-2 text-sm text-gray-600 select-none cursor-pointer">
+          <input
+            type="checkbox"
+            checked={recordarme}
+            onChange={(e) => setRecordarme(e.target.checked)}
+            className="rounded border-gray-300 text-gray-900 focus:ring-gray-900/10"
+          />
+          Recuérdame en este dispositivo
+        </label>
         <Alerta tipo="error">{error}</Alerta>
         <Boton type="submit" cargando={enviando} className="w-full">
           {enviando ? 'Ingresando…' : 'Ingresar'}

@@ -1,4 +1,4 @@
-import { diaActual } from './horario'
+import { diaActual, DIAS_SEMANA } from './horario'
 
 // picoYPlacaConfig: { [dia]: { digitos: string[], horaInicio?: 'HH:mm', horaFin?: 'HH:mm' } }
 // Editable por admin en Firestore — la norma de Medellín cambia periódicamente,
@@ -13,6 +13,14 @@ export function estaBloqueadoPorPicoYPlaca(vehiculo, config, ahora = new Date())
 
   const hhmm = ahora.toTimeString().slice(0, 5)
   return hhmm >= regla.horaInicio && hhmm <= regla.horaFin
+}
+
+// Qué días de la semana le aplica pico y placa a este vehículo (fijo, no
+// depende de una fecha) — para mostrarlo directo en la tarjeta del vehículo.
+export function diasSemanaPicoYPlaca(vehiculo, config) {
+  if (vehiculo.esElectricoHibrido) return []
+  const ultimoDigito = vehiculo.placa?.trim().slice(-1)
+  return DIAS_SEMANA.filter((dia) => config?.[dia]?.digitos?.includes(ultimoDigito))
 }
 
 // Para chequeos a futuro (reservas): qué días dentro de un rango caen en

@@ -17,3 +17,11 @@ export function coincideBusqueda(texto, busqueda) {
   if (!busqueda.trim()) return true
   return normalizarTexto(texto).includes(normalizarTexto(busqueda))
 }
+
+// ['martes'] -> "martes"; ['martes','jueves'] -> "martes y jueves";
+// ['martes','jueves','viernes'] -> "martes, jueves y viernes".
+export function unirConY(items) {
+  if (items.length === 0) return ''
+  if (items.length === 1) return items[0]
+  return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`
+}
