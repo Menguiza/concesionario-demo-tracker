@@ -206,42 +206,36 @@ export default function ComercialesPage() {
                 </Badge>
               </div>
 
-              {/* Etiquetas justo debajo del nombre, siempre visibles — no
-                  hace falta expandir la tarjeta ni bajar hasta los clientes
-                  para verlas o (admin/directivo) editarlas con el "+". */}
-              <div className="pl-5 flex flex-wrap items-center gap-1">
-                <EtiquetasChips tagIds={c.tags} etiquetasPorId={etiquetasPorId} />
-                {puedeAsignarTags && (
-                  <button
-                    type="button"
-                    onClick={() => setEditandoTagsId(editandoTags ? null : c.id)}
-                    className="p-2.5 -m-2.5 rounded-full shrink-0"
-                    aria-label={`Editar etiquetas de ${c.nombre}`}
-                  >
-                    <span
-                      className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-medium transition-colors ${
-                        editandoTags ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                      }`}
+              {/* Teléfono y etiquetas agrupados en una sola columna con
+                  espaciado consistente (nada de márgenes negativos sueltos,
+                  que era lo que hacía que una fila se "montara" sobre la
+                  otra) — siempre visibles, sin tener que expandir la
+                  tarjeta ni bajar hasta los clientes. */}
+              <div className="pl-5 space-y-1.5">
+                {c.telefono && (
+                  <a href={enlaceTel(c.telefono)} className="block text-xs text-gray-500 hover:text-gray-900 transition-colors w-fit">
+                    {c.telefono}
+                  </a>
+                )}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <EtiquetasChips tagIds={c.tags} etiquetasPorId={etiquetasPorId} />
+                  {puedeAsignarTags && (
+                    <button
+                      type="button"
+                      onClick={() => setEditandoTagsId(editandoTags ? null : c.id)}
+                      className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium shrink-0 transition-colors bg-gray-100 text-gray-500 hover:bg-gray-200"
+                      aria-label={`Editar etiquetas de ${c.nombre}`}
                     >
                       {editandoTags ? '×' : '+'}
-                    </span>
-                  </button>
+                    </button>
+                  )}
+                </div>
+                {editandoTags && (
+                  <div className="animate-slide-up pt-0.5">
+                    <EditorEtiquetasComercial comercial={c} etiquetas={etiquetas} onCerrar={() => setEditandoTagsId(null)} />
+                  </div>
                 )}
               </div>
-              {editandoTags && (
-                <div className="pl-5 animate-slide-up">
-                  <EditorEtiquetasComercial comercial={c} etiquetas={etiquetas} onCerrar={() => setEditandoTagsId(null)} />
-                </div>
-              )}
-
-              {c.telefono && (
-                <a
-                  href={enlaceTel(c.telefono)}
-                  className="pl-5 -mt-1 block text-xs text-gray-500 hover:text-gray-900 transition-colors w-fit"
-                >
-                  {c.telefono}
-                </a>
-              )}
 
               <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5">
                 <span className="text-xs text-gray-600">
