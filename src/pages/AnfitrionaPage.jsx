@@ -25,6 +25,7 @@ import Boton from '../components/Boton'
 import Badge from '../components/Badge'
 import Alerta from '../components/Alerta'
 import EtiquetasChips from '../components/EtiquetasChips'
+import Switch from '../components/Switch'
 
 export default function AnfitrionaPage() {
   const [equipos, setEquipos] = useState([])
@@ -38,12 +39,14 @@ export default function AnfitrionaPage() {
   const [telefonoCliente, setTelefonoCliente] = useState('')
   const [tipoCliente, setTipoCliente] = useState('nuevo')
   const [observaciones, setObservaciones] = useState('')
-  const [pideEspecifico, setPideEspecifico] = useState(false)
+  // "Asignación específica": se elige a quién le toca este cliente en vez de
+  // dejar que rote la cola normal. fueDelegado es un sub-interruptor aparte
+  // (apagado por defecto) para el caso puntual de que alguien más — típico,
+  // un comercial de otra sede — sea quien remite al cliente; solo ahí pide
+  // el nombre de quién delega.
+  const [asignacionEspecifica, setAsignacionEspecifica] = useState(false)
   const [comercialEspecificoId, setComercialEspecificoId] = useState('')
-  // Texto libre, opcional: quién señaló a este comercial en concreto (un
-  // comercial de otra sede que delegó, o simplemente que el cliente lo pidió
-  // por nombre) — sin forzar a elegir entre categorías, porque en la
-  // realidad no siempre es uno de dos casos limpios.
+  const [fueDelegado, setFueDelegado] = useState(false)
   const [referidoPor, setReferidoPor] = useState('')
   const [sugerenciaCliente, setSugerenciaCliente] = useState(null)
   const [clienteMaestroElegidoId, setClienteMaestroElegidoId] = useState(null)
@@ -243,10 +246,10 @@ export default function AnfitrionaPage() {
         tipo: tipoCliente,
         clienteMaestroId,
         observaciones: observaciones.trim() || null,
-        referidoPor: pideEspecifico ? referidoPor.trim() || null : null,
+        referidoPor: asignacionEspecifica && fueDelegado ? referidoPor.trim() || null : null,
       }
 
-      if (pideEspecifico && comercialEspecificoId) {
+      if (asignacionEspecifica && comercialEspecificoId) {
         const persona = comercialesTodosPorId[comercialEspecificoId]
         if (!estaEnHorario(persona?.horarioSemanal)) {
           setMensaje(`${persona?.nombre ?? 'Ese comercial'} no está en su horario ahorita, no se le puede asignar.`)
@@ -305,8 +308,9 @@ export default function AnfitrionaPage() {
     setTelefonoCliente('')
     setTipoCliente('nuevo')
     setObservaciones('')
-    setPideEspecifico(false)
+    setAsignacionEspecifica(false)
     setComercialEspecificoId('')
+    setFueDelegado(false)
     setReferidoPor('')
     setSugerenciaCliente(null)
     setClienteMaestroElegidoId(null)
@@ -466,38 +470,55 @@ export default function AnfitrionaPage() {
             </label>
           </div>
           <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input type="checkbox" checked={pideEspecifico} onChange={(e) => setPideEspecifico(e.target.checked)} />
-            Pide un comercial específico
-          </label>
-          {pideEspecifico && (
-            <select
-              required
-              value={comercialEspecificoId}
-              onChange={(e) => setComercialEspecificoId(e.target.value)}
-              className={`${INPUT} animate-slide-up`}
-            >
-              <option value="">Selecciona comercial</option>
-              {gruposComercialesTodos.map((grupo) => (
-                <optgroup key={grupo.titulo} label={grupo.titulo}>
-                  {grupo.personas.map((c) => {
-                    const esDelEquipoActivo = comercialesActivosEquipo.some((ca) => ca.id === c.id)
-                    return (
-                      <option key={c.id} value={c.id}>
-                        {esDelEquipoActivo ? c.nombre : `${c.nombre} (${nombreEquipoDe(c.id) ?? 'sin equipo'})`}
-                      </option>
-                    )
-                  })}
-                </optgroup>
-              ))}
-            </select>
-          )}
-          {pideEspecifico && (
             <input
-              placeholder="¿Quién lo remite? (opcional — ej: lo delegó un comercial de otra sede, o lo pidió por nombre)"
-              value={referidoPor}
-              onChange={(e) => setReferidoPor(e.target.value)}
-              className={`${INPUT} animate-slide-up`}
+              type="checkbox"
+              checked={asignacionEspecifica}
+              onChange={(e) => {
+                setAsignacionEspecifica(e.target.checked)
+                if (!e.target.checked) {
+                  setComercialEspecificoId('')
+                  setFueDelegado(false)
+                  setReferidoPor('')
+                }
+              }}
             />
+            Asignación específica
+          </label>
+          {asignacionEspecifica && (
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-3 animate-slide-up">
+              <select
+                required
+                value={comercialEspecificoId}
+                onChange={(e) => setComercialEspecificoId(e.target.value)}
+                className={INPUT}
+              >
+                <option value="">Selecciona comercial</option>
+                {gruposComercialesTodos.map((grupo) => (
+                  <optgroup key={grupo.titulo} label={grupo.titulo}>
+                    {grupo.personas.map((c) => {
+                      const esDelEquipoActivo = comercialesActivosEquipo.some((ca) => ca.id === c.id)
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {esDelEquipoActivo ? c.nombre : `${c.nombre} (${nombreEquipoDe(c.id) ?? 'sin equipo'})`}
+                        </option>
+                      )
+                    })}
+                  </optgroup>
+                ))}
+              </select>
+
+              <Switch checked={fueDelegado} onChange={setFueDelegado} label="¿Fue delegado por otro comercial?" color="blue" />
+
+              {fueDelegado && (
+                <input
+                  required
+                  placeholder="¿Quién delega o remite? (nombre del comercial)"
+                  value={referidoPor}
+                  onChange={(e) => setReferidoPor(e.target.value)}
+                  className={`${INPUT} animate-slide-up`}
+                />
+              )}
+            </div>
           )}
           <textarea
             placeholder="Observaciones (opcional)"
@@ -625,24 +646,7 @@ export default function AnfitrionaPage() {
                         : 'No disponible'
                       : 'Puede recibir un cliente'}
                   </span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={!ocupado}
-                    onClick={() => toggleOcupado(id)}
-                    className="flex items-center gap-2 shrink-0"
-                  >
-                    <span className={`text-xs font-medium ${ocupado ? 'text-gray-500' : 'text-emerald-700'}`}>
-                      {ocupado ? 'Ocupado' : 'Disponible'}
-                    </span>
-                    <span className={`relative w-9 h-5 rounded-full transition-colors ${ocupado ? 'bg-gray-300' : 'bg-emerald-500'}`}>
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-                          ocupado ? 'translate-x-0' : 'translate-x-4'
-                        }`}
-                      />
-                    </span>
-                  </button>
+                  <Switch checked={!ocupado} onChange={() => toggleOcupado(id)} labelOn="Disponible" labelOff="Ocupado" />
                 </div>
               )}
             </Tarjeta>

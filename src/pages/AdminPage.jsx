@@ -11,6 +11,7 @@ import Tarjeta from '../components/Tarjeta'
 import Boton from '../components/Boton'
 import Alerta from '../components/Alerta'
 import BarraBusqueda from '../components/BarraBusqueda'
+import { colorDeEtiqueta } from '../lib/coloresEtiquetas'
 
 function horarioVacio() {
   return Object.fromEntries(DIAS_SEMANA.map((d) => [d, { activo: false, inicio: '08:00', fin: '18:00' }]))
@@ -479,12 +480,12 @@ function SeccionEtiquetas({ etiquetas }) {
       {etiquetas.length === 0 && <p className="text-xs text-gray-400">Todavía no hay etiquetas creadas.</p>}
       <div className="flex flex-wrap gap-2">
         {etiquetas.map((t) => (
-          <span key={t.id} className="flex items-center gap-1.5 text-xs rounded-full bg-gray-100 text-gray-700 pl-2.5 pr-1.5 py-1">
+          <span key={t.id} className={`flex items-center gap-1.5 text-xs font-medium rounded-full pl-2.5 pr-1.5 py-1 ${colorDeEtiqueta(t.id)}`}>
             {t.nombre}
             <button
               type="button"
               onClick={() => handleEliminar(t.id)}
-              className="text-gray-400 hover:text-red-600 transition-colors leading-none"
+              className="text-current opacity-50 hover:opacity-100 transition-opacity leading-none"
               aria-label={`Borrar etiqueta ${t.nombre}`}
             >
               ×

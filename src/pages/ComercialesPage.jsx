@@ -16,39 +16,48 @@ import Alerta from '../components/Alerta'
 import Vacio from '../components/Vacio'
 import BarraBusqueda from '../components/BarraBusqueda'
 import EtiquetasChips from '../components/EtiquetasChips'
+import { colorDeEtiqueta } from '../lib/coloresEtiquetas'
 
-// Pastillas clicables (mismo patrón que la asignación de equipos en Admin)
-// para prender/apagar la pertenencia de este comercial a cada etiqueta.
-function EditorEtiquetasComercial({ comercial, etiquetas }) {
+// Panel contenido (borde + fondo propio) para que se sienta como un
+// popover anclado al "+", no como más texto suelto en la tarjeta. Cada
+// pastilla activa toma el mismo color que tiene en todas partes (chips de
+// Cola, catálogo de Admin) para que la etiqueta se reconozca por color de
+// un vistazo.
+function EditorEtiquetasComercial({ comercial, etiquetas, onCerrar }) {
   async function toggleEtiqueta(etiquetaId) {
     const actuales = comercial.tags ?? []
     const nuevas = actuales.includes(etiquetaId) ? actuales.filter((id) => id !== etiquetaId) : [...actuales, etiquetaId]
     await actualizarUsuario(comercial.id, { tags: nuevas })
   }
 
-  if (etiquetas.length === 0) {
-    return <p className="text-xs text-gray-400">Todavía no hay etiquetas creadas (se crean desde Administración).</p>
-  }
-
   return (
-    <div className="space-y-1">
-      <p className="text-xs text-gray-500">Etiquetas</p>
-      <div className="flex flex-wrap gap-2">
-        {etiquetas.map((t) => {
-          const activa = (comercial.tags ?? []).includes(t.id)
-          return (
-            <label
-              key={t.id}
-              className={`flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1 cursor-pointer border transition-colors ${
-                activa ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-50 text-gray-600 border-transparent hover:border-gray-300'
-              }`}
-            >
-              <input type="checkbox" checked={activa} onChange={() => toggleEtiqueta(t.id)} className="hidden" />
-              {t.nombre}
-            </label>
-          )
-        })}
+    <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-gray-700">Etiquetas de {comercial.nombre}</p>
+        <button type="button" onClick={onCerrar} className="text-xs text-gray-400 hover:text-gray-600 transition-colors shrink-0">
+          Listo
+        </button>
       </div>
+      {etiquetas.length === 0 ? (
+        <p className="text-xs text-gray-400">Todavía no hay etiquetas creadas (se crean desde Administración).</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {etiquetas.map((t) => {
+            const activa = (comercial.tags ?? []).includes(t.id)
+            return (
+              <label
+                key={t.id}
+                className={`flex items-center gap-1.5 text-xs font-medium rounded-full px-2.5 py-1.5 cursor-pointer border transition-colors ${
+                  activa ? `${colorDeEtiqueta(t.id)} border-transparent` : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <input type="checkbox" checked={activa} onChange={() => toggleEtiqueta(t.id)} className="hidden" />
+                {t.nombre}
+              </label>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -200,24 +209,28 @@ export default function ComercialesPage() {
               {/* Etiquetas justo debajo del nombre, siempre visibles — no
                   hace falta expandir la tarjeta ni bajar hasta los clientes
                   para verlas o (admin/directivo) editarlas con el "+". */}
-              <div className="pl-5 flex flex-wrap items-center gap-1.5">
+              <div className="pl-5 flex flex-wrap items-center gap-1">
                 <EtiquetasChips tagIds={c.tags} etiquetasPorId={etiquetasPorId} />
                 {puedeAsignarTags && (
                   <button
                     type="button"
                     onClick={() => setEditandoTagsId(editandoTags ? null : c.id)}
-                    className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium shrink-0 transition-colors ${
-                      editandoTags ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                    }`}
+                    className="p-2.5 -m-2.5 rounded-full shrink-0"
                     aria-label={`Editar etiquetas de ${c.nombre}`}
                   >
-                    {editandoTags ? '×' : '+'}
+                    <span
+                      className={`flex items-center justify-center w-5 h-5 rounded-full text-xs font-medium transition-colors ${
+                        editandoTags ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                    >
+                      {editandoTags ? '×' : '+'}
+                    </span>
                   </button>
                 )}
               </div>
               {editandoTags && (
                 <div className="pl-5 animate-slide-up">
-                  <EditorEtiquetasComercial comercial={c} etiquetas={etiquetas} />
+                  <EditorEtiquetasComercial comercial={c} etiquetas={etiquetas} onCerrar={() => setEditandoTagsId(null)} />
                 </div>
               )}
 
