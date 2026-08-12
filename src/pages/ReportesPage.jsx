@@ -172,10 +172,11 @@ async function construirReporteClientes(libro, { desde, hasta, comercialId, usua
     { header: 'Teléfono', key: 'telefono', width: 16 },
     { header: 'Tipo', key: 'tipo', width: 12 },
     { header: 'Pidió específico', key: 'especifico', width: 15 },
+    { header: 'Motivo del pedido específico', key: 'motivoEspecifico', width: 28 },
+    { header: 'Comercial apoderado (otra sede)', key: 'comercialApoderado', width: 26 },
     { header: 'Efectivo', key: 'efectivo', width: 12 },
     { header: 'Motivo descarte', key: 'motivoDescarte', width: 24 },
     { header: 'Observaciones', key: 'observaciones', width: 28 },
-    { header: 'Comercial apoderado (otra sede)', key: 'comercialApoderado', width: 26 },
     { header: 'ID cliente maestro', key: 'clienteMaestroId', width: 22 },
   ]
   const hoja = agregarHojaTabular(libro, 'Clientes', columnas)
@@ -188,10 +189,11 @@ async function construirReporteClientes(libro, { desde, hasta, comercialId, usua
       telefono: c.telefono ?? '',
       tipo: c.tipo === 'nuevo' ? 'Nuevo' : 'Recurrente',
       especifico: c.comercialSolicitado ? 'Sí' : 'No',
+      motivoEspecifico: c.comercialSolicitado ? (c.esDelegacionExterna ? 'Delegado por comercial de otra sede' : 'El cliente lo pidió') : '',
+      comercialApoderado: c.comercialApoderado ?? '',
       efectivo: c.efectivo ? 'Sí' : 'No',
       motivoDescarte: c.efectivo ? '' : (c.motivoDescarte ?? ''),
       observaciones: c.observaciones ?? '',
-      comercialApoderado: c.comercialApoderado ?? '',
       clienteMaestroId: c.clienteMaestroId ?? '',
     })
   }

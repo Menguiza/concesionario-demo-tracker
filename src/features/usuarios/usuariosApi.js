@@ -38,6 +38,7 @@ export async function crearUsuarioStaff({ email, password, nombre, telefono, rol
       rol,
       horarioSemanal: horarioSemanal ?? null,
       activo: true,
+      tags: [],
     })
     if (equipoId) {
       await agregarComercialAEquipo(equipoId, cred.user.uid)

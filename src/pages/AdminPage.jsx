@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { suscribirEquipos, crearEquipo, actualizarMiembrosEquipo } from '../features/equipos/equiposApi'
 import { suscribirUsuarios, crearUsuarioStaff, actualizarUsuario } from '../features/usuarios/usuariosApi'
 import { suscribirPicoYPlacaConfig, guardarPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
+import { suscribirEtiquetas, crearEtiqueta, eliminarEtiqueta } from '../features/etiquetas/etiquetasApi'
 import { DIAS_SEMANA, ETIQUETA_DIA } from '../lib/horario'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { coincideBusqueda } from '../lib/texto'
@@ -416,12 +417,75 @@ function SeccionPicoYPlaca() {
   )
 }
 
+// Catálogo de etiquetas (ej: "Planta", "Web") — crearlas/borrarlas es
+// exclusivo de admin. Asignarlas a un comercial puntual se hace desde
+// Comerciales (admin y directivo), no aquí.
+function SeccionEtiquetas({ etiquetas }) {
+  const [nombre, setNombre] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [mensaje, setMensaje] = useState('')
+
+  async function handleCrear(e) {
+    e.preventDefault()
+    if (!nombre.trim()) return
+    setEnviando(true)
+    setMensaje('')
+    try {
+      await crearEtiqueta(nombre)
+      setNombre('')
+    } catch (err) {
+      setMensaje(mensajeErrorAmigable(err))
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  async function handleEliminar(id) {
+    if (!window.confirm('¿Borrar esta etiqueta? Se le quita a cualquier comercial que la tenga.')) return
+    await eliminarEtiqueta(id)
+  }
+
+  return (
+    <Tarjeta animar className="p-4 space-y-3">
+      <h2 className="text-sm font-semibold text-gray-900">Etiquetas de comerciales</h2>
+      <p className="text-xs text-gray-500">
+        Áreas u orígenes (ej: Planta, Web) que después admin y directivo pueden asignar a cada comercial desde "Comerciales".
+      </p>
+      <form onSubmit={handleCrear} className="flex gap-2">
+        <input required placeholder="Nombre de la etiqueta" value={nombre} onChange={(e) => setNombre(e.target.value)} className={INPUT} />
+        <Boton type="submit" cargando={enviando} className="shrink-0">
+          Crear
+        </Boton>
+      </form>
+      <Alerta tipo="error">{mensaje}</Alerta>
+      {etiquetas.length === 0 && <p className="text-xs text-gray-400">Todavía no hay etiquetas creadas.</p>}
+      <div className="flex flex-wrap gap-2">
+        {etiquetas.map((t) => (
+          <span key={t.id} className="flex items-center gap-1.5 text-xs rounded-full bg-gray-100 text-gray-700 pl-2.5 pr-1.5 py-1">
+            {t.nombre}
+            <button
+              type="button"
+              onClick={() => handleEliminar(t.id)}
+              className="text-gray-400 hover:text-red-600 transition-colors leading-none"
+              aria-label={`Borrar etiqueta ${t.nombre}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+    </Tarjeta>
+  )
+}
+
 export default function AdminPage() {
   const [equipos, setEquipos] = useState([])
   const [usuarios, setUsuarios] = useState([])
+  const [etiquetas, setEtiquetas] = useState([])
 
   useEffect(() => suscribirEquipos(setEquipos), [])
   useEffect(() => suscribirUsuarios(setUsuarios), [])
+  useEffect(() => suscribirEtiquetas(setEtiquetas), [])
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -431,6 +495,7 @@ export default function AdminPage() {
         <SeccionUsuarios equipos={equipos} />
         <SeccionUsuariosExistentes usuarios={usuarios} equipos={equipos} />
         <SeccionPicoYPlaca />
+        <SeccionEtiquetas etiquetas={etiquetas} />
       </div>
     </div>
   )

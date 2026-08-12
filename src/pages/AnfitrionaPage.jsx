@@ -10,6 +10,7 @@ import {
 } from '../features/cola/colaApi'
 import { registrarCliente, marcarDescarte, contarClientesEfectivosEnRango } from '../features/clientes/clientesApi'
 import { buscarClienteMaestro, crearOReutilizarClienteMaestro } from '../features/clientes/clientesMaestroApi'
+import { suscribirEtiquetas } from '../features/etiquetas/etiquetasApi'
 import { construirOrdenInicial, elegirYRotar, elegirEquipoDelDia, asignarComercialEspecifico, pasarSinConsumirCola } from '../lib/queue'
 import { estaEnHorario } from '../lib/horario'
 import { esDiaHabil, diaHabilAnterior, pasosHabilesDesde } from '../lib/diasHabiles'
@@ -17,15 +18,18 @@ import { fechaLocalYYYYMMDD, parseFechaLocal } from '../lib/fechas'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
 import { enlaceTel } from '../lib/telefono'
+import { agruparPersonasPorEtiqueta } from '../lib/agruparPorEtiqueta'
 import { INPUT } from '../lib/estilos'
 import Tarjeta from '../components/Tarjeta'
 import Boton from '../components/Boton'
 import Badge from '../components/Badge'
 import Alerta from '../components/Alerta'
+import EtiquetasChips from '../components/EtiquetasChips'
 
 export default function AnfitrionaPage() {
   const [equipos, setEquipos] = useState([])
   const [usuarios, setUsuarios] = useState([])
+  const [etiquetas, setEtiquetas] = useState([])
   const [estadoSemana, setEstadoSemana] = useState(null)
   const [cola, setCola] = useState(null)
   const [mensaje, setMensaje] = useState('')
@@ -36,7 +40,12 @@ export default function AnfitrionaPage() {
   const [observaciones, setObservaciones] = useState('')
   const [pideEspecifico, setPideEspecifico] = useState(false)
   const [comercialEspecificoId, setComercialEspecificoId] = useState('')
-  const [esDelegacionExterna, setEsDelegacionExterna] = useState(false)
+  // 'cliente': el cliente pidió a esa persona por nombre. 'delegacion': un
+  // comercial de otra sede se lo pasó a este. Antes esto vivía en un
+  // checkbox aparte de "otra sede" que forzaba pideEspecifico — mezclaba el
+  // "quién" con el "por qué" y era fácil de malinterpretar (sobre todo en el
+  // Excel). Ahora es una sub-pregunta de "pide específico", no un caso aparte.
+  const [motivoEspecifico, setMotivoEspecifico] = useState('cliente')
   const [comercialApoderado, setComercialApoderado] = useState('')
   const [sugerenciaCliente, setSugerenciaCliente] = useState(null)
   const [clienteMaestroElegidoId, setClienteMaestroElegidoId] = useState(null)
@@ -72,6 +81,7 @@ export default function AnfitrionaPage() {
   useEffect(() => suscribirEquipos(setEquipos), [])
   useEffect(() => suscribirUsuarios(setUsuarios), [])
   useEffect(() => suscribirEstadoSemana(setEstadoSemana), [])
+  useEffect(() => suscribirEtiquetas(setEtiquetas), [])
 
   const equipoActivoId = estadoSemana?.equipoActivoId ?? null
 
@@ -124,6 +134,11 @@ export default function AnfitrionaPage() {
   const comercialesTodosPorId = useMemo(
     () => Object.fromEntries(comercialesTodos.map((c) => [c.id, c])),
     [comercialesTodos]
+  )
+  const etiquetasPorId = useMemo(() => Object.fromEntries(etiquetas.map((t) => [t.id, t])), [etiquetas])
+  const gruposComercialesTodos = useMemo(
+    () => agruparPersonasPorEtiqueta(comercialesTodos, etiquetas),
+    [comercialesTodos, etiquetas]
   )
   function nombreEquipoDe(comercialId) {
     return equipos.find((e) => e.miembros.includes(comercialId))?.nombre
@@ -224,6 +239,7 @@ export default function AnfitrionaPage() {
         telefono: telefonoCliente,
         clienteMaestroIdConfirmado: clienteMaestroElegidoId,
       })
+      const esDelegacionExterna = pideEspecifico && motivoEspecifico === 'delegacion'
       const datosCliente = {
         nombre: nombreCliente,
         telefono: telefonoCliente,
@@ -295,7 +311,7 @@ export default function AnfitrionaPage() {
     setObservaciones('')
     setPideEspecifico(false)
     setComercialEspecificoId('')
-    setEsDelegacionExterna(false)
+    setMotivoEspecifico('cliente')
     setComercialApoderado('')
     setSugerenciaCliente(null)
     setClienteMaestroElegidoId(null)
@@ -466,37 +482,43 @@ export default function AnfitrionaPage() {
               className={`${INPUT} animate-slide-up`}
             >
               <option value="">Selecciona comercial</option>
-              {[...comercialesTodos]
-                .sort((a, b) => a.nombre.localeCompare(b.nombre))
-                .map((c) => {
-                  const esDelEquipoActivo = comercialesActivosEquipo.some((ca) => ca.id === c.id)
-                  return (
-                    <option key={c.id} value={c.id}>
-                      {esDelEquipoActivo ? c.nombre : `${c.nombre} (${nombreEquipoDe(c.id) ?? 'sin equipo'})`}
-                    </option>
-                  )
-                })}
+              {gruposComercialesTodos.map((grupo) => (
+                <optgroup key={grupo.titulo} label={grupo.titulo}>
+                  {grupo.personas.map((c) => {
+                    const esDelEquipoActivo = comercialesActivosEquipo.some((ca) => ca.id === c.id)
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {esDelEquipoActivo ? c.nombre : `${c.nombre} (${nombreEquipoDe(c.id) ?? 'sin equipo'})`}
+                      </option>
+                    )
+                  })}
+                </optgroup>
+              ))}
             </select>
           )}
-          <label className="flex items-center gap-2 text-sm text-gray-700">
-            <input
-              type="checkbox"
-              checked={esDelegacionExterna}
-              onChange={(e) => {
-                setEsDelegacionExterna(e.target.checked)
-                if (e.target.checked) setPideEspecifico(true)
-              }}
-            />
-            Cliente de otra sede (delegación temporal)
-          </label>
-          {esDelegacionExterna && (
-            <input
-              required
-              placeholder="Nombre del comercial apoderado (de la otra sede)"
-              value={comercialApoderado}
-              onChange={(e) => setComercialApoderado(e.target.value)}
-              className={`${INPUT} animate-slide-up`}
-            />
+          {pideEspecifico && (
+            <div className="space-y-1.5 pl-1 animate-slide-up">
+              <p className="text-xs text-gray-500">¿Por qué se pide específicamente?</p>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <label className="flex items-center gap-1.5">
+                  <input type="radio" checked={motivoEspecifico === 'cliente'} onChange={() => setMotivoEspecifico('cliente')} />
+                  El cliente lo pidió
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input type="radio" checked={motivoEspecifico === 'delegacion'} onChange={() => setMotivoEspecifico('delegacion')} />
+                  Un comercial de otra sede lo delegó
+                </label>
+              </div>
+              {motivoEspecifico === 'delegacion' && (
+                <input
+                  required
+                  placeholder="Nombre del comercial de la otra sede"
+                  value={comercialApoderado}
+                  onChange={(e) => setComercialApoderado(e.target.value)}
+                  className={`${INPUT} animate-slide-up`}
+                />
+              )}
+            </div>
           )}
           <textarea
             placeholder="Observaciones (opcional)"
@@ -556,6 +578,7 @@ export default function AnfitrionaPage() {
                         {comercial.telefono}
                       </a>
                     )}
+                    <EtiquetasChips tagIds={comercial?.tags} etiquetasPorId={etiquetasPorId} className="mt-1" />
                   </div>
                 </div>
                 {esSiguiente && <Badge color="blue">Siguiente</Badge>}

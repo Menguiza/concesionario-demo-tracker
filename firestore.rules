@@ -24,10 +24,17 @@ service cloud.firestore {
     match /usuarios/{uid} {
       allow read: if autenticado();
       allow create, delete: if esAdmin();
-      // Anfitriona solo puede tocar ultimaLlegada (marcar llegada); todo lo
+      // Anfitriona solo puede tocar ultimaLlegada (marcar llegada); directivo
+      // solo puede tocar tags (asignar etiquetas a un comercial); todo lo
       // demás (rol, horario, activo, etc.) sigue siendo exclusivo de admin.
       allow update: if esAdmin() ||
-        (esAnfitriona() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimaLlegada']));
+        (esAnfitriona() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimaLlegada'])) ||
+        (esDirectivo() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tags']));
+    }
+
+    match /etiquetas/{id} {
+      allow read: if autenticado();
+      allow create, update, delete: if esAdmin();
     }
 
     match /equipos/{id} {

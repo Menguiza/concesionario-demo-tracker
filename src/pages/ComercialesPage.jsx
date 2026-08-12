@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { suscribirUsuarios, marcarLlegadaHoy } from '../features/usuarios/usuariosApi'
+import { suscribirUsuarios, marcarLlegadaHoy, actualizarUsuario } from '../features/usuarios/usuariosApi'
 import { suscribirClientesDeComercial, marcarDescarte, revertirDescarte } from '../features/clientes/clientesApi'
+import { suscribirEtiquetas } from '../features/etiquetas/etiquetasApi'
 import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
 import { agruparClientesPorDia, formatoTituloDia } from '../lib/agruparClientesPorDia'
 import { fechaLocalYYYYMMDD } from '../lib/fechas'
@@ -14,6 +15,43 @@ import Boton from '../components/Boton'
 import Alerta from '../components/Alerta'
 import Vacio from '../components/Vacio'
 import BarraBusqueda from '../components/BarraBusqueda'
+import EtiquetasChips from '../components/EtiquetasChips'
+
+// Pastillas clicables (mismo patrón que la asignación de equipos en Admin)
+// para prender/apagar la pertenencia de este comercial a cada etiqueta.
+function EditorEtiquetasComercial({ comercial, etiquetas }) {
+  async function toggleEtiqueta(etiquetaId) {
+    const actuales = comercial.tags ?? []
+    const nuevas = actuales.includes(etiquetaId) ? actuales.filter((id) => id !== etiquetaId) : [...actuales, etiquetaId]
+    await actualizarUsuario(comercial.id, { tags: nuevas })
+  }
+
+  if (etiquetas.length === 0) {
+    return <p className="text-xs text-gray-400">Todavía no hay etiquetas creadas (se crean desde Administración).</p>
+  }
+
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-gray-500">Etiquetas</p>
+      <div className="flex flex-wrap gap-2">
+        {etiquetas.map((t) => {
+          const activa = (comercial.tags ?? []).includes(t.id)
+          return (
+            <label
+              key={t.id}
+              className={`flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1 cursor-pointer border transition-colors ${
+                activa ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-50 text-gray-600 border-transparent hover:border-gray-300'
+              }`}
+            >
+              <input type="checkbox" checked={activa} onChange={() => toggleEtiqueta(t.id)} className="hidden" />
+              {t.nombre}
+            </label>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 function ClientesDeComercial({ comercialId, puedeGestionar }) {
   const [clientes, setClientes] = useState([])
@@ -99,12 +137,16 @@ function ClientesDeComercial({ comercialId, puedeGestionar }) {
 export default function ComercialesPage() {
   const { rol } = useAuth()
   const puedeGestionar = rol === 'admin' || rol === 'anfitriona'
+  const puedeAsignarTags = rol === 'admin' || rol === 'directivo'
   const [comerciales, setComerciales] = useState([])
+  const [etiquetas, setEtiquetas] = useState([])
   const [expandidoId, setExpandidoId] = useState(null)
   const [busqueda, setBusqueda] = useState('')
 
   useEffect(() => suscribirUsuarios((todos) => setComerciales(todos.filter((u) => u.rol === 'comercial'))), [])
+  useEffect(() => suscribirEtiquetas(setEtiquetas), [])
 
+  const etiquetasPorId = Object.fromEntries(etiquetas.map((t) => [t.id, t]))
   const comercialesVisibles = comerciales.filter((c) => coincideBusqueda(c.nombre, busqueda))
 
   return (
@@ -154,6 +196,8 @@ export default function ComercialesPage() {
                 </a>
               )}
 
+              <EtiquetasChips tagIds={c.tags} etiquetasPorId={etiquetasPorId} className="pl-5" />
+
               <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5">
                 <span className="text-xs text-gray-600">
                   {llegadaHoy
@@ -168,7 +212,8 @@ export default function ComercialesPage() {
               </div>
 
               {expandido && (
-                <div className="pl-4 animate-slide-up">
+                <div className="pl-4 space-y-3 animate-slide-up">
+                  {puedeAsignarTags && <EditorEtiquetasComercial comercial={c} etiquetas={etiquetas} />}
                   <ClientesDeComercial comercialId={c.id} puedeGestionar={puedeGestionar} />
                 </div>
               )}

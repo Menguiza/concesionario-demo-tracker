@@ -9,9 +9,11 @@ import {
 } from '../features/reservas/reservasApi'
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
+import { suscribirEtiquetas } from '../features/etiquetas/etiquetasApi'
 import { diasBloqueadosPorPicoYPlacaEnRango } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { coincideBusqueda } from '../lib/texto'
+import { agruparPersonasPorEtiqueta } from '../lib/agruparPorEtiqueta'
 import { INPUT } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
 import Tarjeta from '../components/Tarjeta'
@@ -167,6 +169,7 @@ export default function ReservasPage() {
   const [comerciales, setComerciales] = useState([])
   const [directivos, setDirectivos] = useState([])
   const [staffResponsable, setStaffResponsable] = useState([])
+  const [etiquetas, setEtiquetas] = useState([])
   const [mostrarCanceladas, setMostrarCanceladas] = useState(false)
   const [busqueda, setBusqueda] = useState('')
 
@@ -186,6 +189,7 @@ export default function ReservasPage() {
   useEffect(() => suscribirVehiculos(setVehiculos), [])
   useEffect(() => suscribirReservas(setReservas), [])
   useEffect(() => suscribirPicoYPlacaConfig(setPicoYPlacaConfig), [])
+  useEffect(() => suscribirEtiquetas(setEtiquetas), [])
 
   // Barrido perezoso: si alguien con permiso para gestionar reservas abre esta
   // pantalla, aprovechamos para marcar como incumplidas las que ya vencieron
@@ -210,6 +214,8 @@ export default function ReservasPage() {
       coincideBusqueda(`${vehiculosPorId[r.vehiculoId]?.placa ?? ''} ${r.solicitadoPor?.nombre ?? ''}`, busqueda)
   )
   const listaPersonas = quienTipo === 'comercial' ? comerciales : quienTipo === 'directivo' ? directivos : []
+  const gruposListaPersonas = agruparPersonasPorEtiqueta(listaPersonas, etiquetas)
+  const gruposStaffResponsable = agruparPersonasPorEtiqueta(staffResponsable, etiquetas)
 
   const necesitaAutorizacion = quienTipo !== 'directivo'
 
@@ -353,10 +359,14 @@ export default function ReservasPage() {
                 <div className="space-y-2 animate-slide-up">
                   <select required value={quienSeleccion} onChange={(e) => setQuienSeleccion(e.target.value)} className={INPUT}>
                     <option value="">Selecciona {quienTipo === 'comercial' ? 'comercial' : 'directivo'}</option>
-                    {listaPersonas.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nombre}
-                      </option>
+                    {gruposListaPersonas.map((grupo) => (
+                      <optgroup key={grupo.titulo} label={grupo.titulo}>
+                        {grupo.personas.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nombre}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                     <option value="otro">Otro (no está en la lista)</option>
                   </select>
@@ -377,10 +387,14 @@ export default function ReservasPage() {
                 <label className="block text-xs text-gray-500 mb-1">Responsable del préstamo</label>
                 <select required value={responsableId} onChange={(e) => setResponsableId(e.target.value)} className={INPUT}>
                   <option value="">Selecciona quién queda como responsable</option>
-                  {staffResponsable.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre} ({p.rol})
-                    </option>
+                  {gruposStaffResponsable.map((grupo) => (
+                    <optgroup key={grupo.titulo} label={grupo.titulo}>
+                      {grupo.personas.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.nombre} ({p.rol})
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>

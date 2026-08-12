@@ -11,11 +11,13 @@ import {
 } from '../features/reservas/reservasApi'
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
+import { suscribirEtiquetas } from '../features/etiquetas/etiquetasApi'
 import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango, diasSemanaPicoYPlaca } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
 import { parseFechaLocal, formatoFechaLarga, formatoHoraCorta } from '../lib/fechas'
 import { fotosFaltantes } from '../lib/fotosVehiculo'
 import { coincideBusqueda, unirConY } from '../lib/texto'
+import { agruparPersonasPorEtiqueta } from '../lib/agruparPorEtiqueta'
 import { ETIQUETA_DIA } from '../lib/horario'
 import { INPUT } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
@@ -145,8 +147,9 @@ function ConsultaPicoYPlacaRapida({ vehiculo, picoYPlacaConfig }) {
 // responsable + autorizadoPor, y solo después registra el movimiento atado a
 // ella — así todo préstamo (instantáneo o no) queda bajo el mismo mecanismo
 // de responsabilidad/incumplimiento que ya usan comercial y directivo.
-function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, directivosActivos, staffResponsable, onCerrar }) {
+function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, directivosActivos, staffResponsable, etiquetas, onCerrar }) {
   const { perfil } = useAuth()
+  const gruposStaffResponsable = agruparPersonasPorEtiqueta(staffResponsable, etiquetas)
   const tipo = vehiculo.estado === 'prestado' ? 'recepcion' : 'entrega'
   const [nombreCliente, setNombreCliente] = useState('')
   const [motivo, setMotivo] = useState('')
@@ -289,10 +292,14 @@ function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, directivos
           <label className="block text-xs text-gray-500 mb-1">Responsable del préstamo</label>
           <select required value={responsableId} onChange={(e) => setResponsableId(e.target.value)} className={INPUT}>
             <option value="">Selecciona quién queda como responsable</option>
-            {staffResponsable.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nombre} ({p.rol})
-              </option>
+            {gruposStaffResponsable.map((grupo) => (
+              <optgroup key={grupo.titulo} label={grupo.titulo}>
+                {grupo.personas.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre} ({p.rol})
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
@@ -347,7 +354,7 @@ function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, directivos
 // en la cuenta del comercial/directivo elegido. Anfitriona/admin no suben fotos.
 // Si a quien se le asigna ya es directivo, no hace falta autorización de otro
 // directivo (se asume autosuficiente).
-function FormularioAsignacionInstantanea({ vehiculo, personas, directivosActivos, onCerrar }) {
+function FormularioAsignacionInstantanea({ vehiculo, personas, directivosActivos, etiquetas, onCerrar }) {
   const [personaId, setPersonaId] = useState('')
   const [duracionHoras, setDuracionHoras] = useState(1)
   const [motivo, setMotivo] = useState('')
@@ -357,6 +364,7 @@ function FormularioAsignacionInstantanea({ vehiculo, personas, directivosActivos
 
   const persona = personas.find((p) => p.id === personaId)
   const necesitaAutorizacion = persona && persona.rol !== 'directivo'
+  const gruposPersonas = agruparPersonasPorEtiqueta(personas, etiquetas)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -402,10 +410,14 @@ function FormularioAsignacionInstantanea({ vehiculo, personas, directivosActivos
       <p className="text-sm font-medium text-gray-900">Asignar {vehiculo.placa} ahora</p>
       <select required value={personaId} onChange={(e) => setPersonaId(e.target.value)} className={INPUT}>
         <option value="">Selecciona comercial o directivo</option>
-        {personas.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.nombre} ({p.rol === 'comercial' ? 'Comercial' : 'Directivo'})
-          </option>
+        {gruposPersonas.map((grupo) => (
+          <optgroup key={grupo.titulo} label={grupo.titulo}>
+            {grupo.personas.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre} ({p.rol === 'comercial' ? 'Comercial' : 'Directivo'})
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
       <select value={duracionHoras} onChange={(e) => setDuracionHoras(Number(e.target.value))} className={INPUT}>
@@ -451,6 +463,7 @@ export default function VehiculosPage() {
   const [vehiculos, setVehiculos] = useState([])
   const [picoYPlacaConfig, setPicoYPlacaConfig] = useState(null)
   const [usuariosTodos, setUsuariosTodos] = useState([])
+  const [etiquetas, setEtiquetas] = useState([])
   const [misReservas, setMisReservas] = useState([])
   const [todasReservas, setTodasReservas] = useState([])
   const [accionAbierta, setAccionAbierta] = useState(null)
@@ -467,6 +480,11 @@ export default function VehiculosPage() {
   useEffect(() => {
     if (!gestionAmplia) return
     return suscribirUsuarios(setUsuariosTodos)
+  }, [gestionAmplia])
+
+  useEffect(() => {
+    if (!gestionAmplia) return
+    return suscribirEtiquetas(setEtiquetas)
   }, [gestionAmplia])
 
   const personasAsignables = usuariosTodos.filter((u) => (u.rol === 'comercial' || u.rol === 'directivo') && u.activo !== false)
@@ -652,6 +670,7 @@ export default function VehiculosPage() {
                   picoYPlacaConfig={picoYPlacaConfig}
                   directivosActivos={directivosActivos}
                   staffResponsable={staffResponsable}
+                  etiquetas={etiquetas}
                   onCerrar={() => setAccionAbierta(null)}
                 />
               )}
@@ -660,6 +679,7 @@ export default function VehiculosPage() {
                   vehiculo={v}
                   personas={personasAsignables}
                   directivosActivos={directivosActivos}
+                  etiquetas={etiquetas}
                   onCerrar={() => setAccionAbierta(null)}
                 />
               )}
