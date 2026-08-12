@@ -18,6 +18,7 @@ import { parseFechaLocal, formatoFechaLarga, formatoHoraCorta } from '../lib/fec
 import { fotosFaltantes } from '../lib/fotosVehiculo'
 import { coincideBusqueda, unirConY } from '../lib/texto'
 import { agruparPersonasPorEtiqueta } from '../lib/agruparPorEtiqueta'
+import { enlaceTel } from '../lib/telefono'
 import { ETIQUETA_DIA } from '../lib/horario'
 import { INPUT } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
@@ -64,6 +65,36 @@ async function validarChoquesReserva(vehiculoId, fechaInicio, fechaFin, placa) {
     `${placa} tiene una reserva de ${siguiente.solicitadoPor?.nombre ?? 'alguien más'} el ${formatoFechaLarga(siguiente.fechaInicio.toDate())} a las ${formatoHoraCorta(siguiente.fechaInicio.toDate())}. Debe estar disponible antes de esa hora. ¿Continuar de todas formas?`
   )
   return { ok: continuar, mensaje: null }
+}
+
+function telefonoDe(persona, usuariosPorId) {
+  if (!persona?.uid) return null
+  return usuariosPorId[persona.uid]?.telefono || null
+}
+
+// A quién llamar por este vehículo ahora mismo — para poder reaccionar
+// rápido si no aparece o no lo devuelven. Si lo tiene un cliente (sin
+// cuenta propia, sin teléfono en quienTiene), se contacta al responsable
+// del préstamo en su lugar, no al cliente.
+function contactoDelVehiculo(vehiculo, reservaAsignada, usuariosPorId, todasReservas) {
+  if (vehiculo.estado === 'prestado' && vehiculo.quienTiene) {
+    if (vehiculo.quienTiene.uid) {
+      const telefono = telefonoDe(vehiculo.quienTiene, usuariosPorId)
+      return telefono ? { etiqueta: vehiculo.quienTiene.nombre, telefono } : null
+    }
+    const reserva = todasReservas.find((r) => r.movimientoId === vehiculo.movimientoActualId)
+    const telefono = telefonoDe(reserva?.responsable, usuariosPorId)
+    return telefono ? { etiqueta: `${reserva.responsable.nombre} (responsable)`, telefono } : null
+  }
+  if (reservaAsignada) {
+    if (reservaAsignada.solicitadoPor?.uid) {
+      const telefono = telefonoDe(reservaAsignada.solicitadoPor, usuariosPorId)
+      return telefono ? { etiqueta: reservaAsignada.solicitadoPor.nombre, telefono } : null
+    }
+    const telefono = telefonoDe(reservaAsignada.responsable, usuariosPorId)
+    return telefono ? { etiqueta: `${reservaAsignada.responsable?.nombre} (responsable)`, telefono } : null
+  }
+  return null
 }
 
 function EstadoBadge({ vehiculo, picoYPlacaConfig, asignadoAhora }) {
@@ -477,10 +508,10 @@ export default function VehiculosPage() {
   useEffect(() => suscribirPicoYPlacaConfig(setPicoYPlacaConfig), [])
   useEffect(() => suscribirReservas(setTodasReservas), [])
 
-  useEffect(() => {
-    if (!gestionAmplia) return
-    return suscribirUsuarios(setUsuariosTodos)
-  }, [gestionAmplia])
+  // Sin gatear por gestionAmplia: hace falta el teléfono de cualquier
+  // rol para poder mostrar a quién llamar por un vehículo, sin importar
+  // quién esté viendo la pantalla (ver contactoDelVehiculo).
+  useEffect(() => suscribirUsuarios(setUsuariosTodos), [])
 
   useEffect(() => {
     if (!gestionAmplia) return
@@ -492,6 +523,7 @@ export default function VehiculosPage() {
   const staffResponsable = usuariosTodos.filter(
     (u) => ['comercial', 'directivo', 'anfitriona'].includes(u.rol) && u.activo !== false
   )
+  const usuariosPorId = Object.fromEntries(usuariosTodos.map((u) => [u.id, u]))
 
   useEffect(() => {
     if (gestionAmplia || !firebaseUser) return
@@ -600,6 +632,7 @@ export default function VehiculosPage() {
           const relacion = gestionAmplia ? null : relacionPropia(v)
           const reservaAsignada = v.estado === 'disponible' ? reservaAsignadaAhora(v.id) : null
           const diasPicoYPlaca = diasSemanaPicoYPlaca(v, picoYPlacaConfig)
+          const contacto = contactoDelVehiculo(v, reservaAsignada, usuariosPorId, todasReservas)
           return (
             <Tarjeta key={v.id} interactiva animar className="p-4" style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}>
               <div className="flex items-center justify-between gap-3">
@@ -613,6 +646,11 @@ export default function VehiculosPage() {
                   )}
                   {reservaAsignada && (
                     <p className="text-xs text-gray-500">Asignado a: {reservaAsignada.solicitadoPor?.nombre}</p>
+                  )}
+                  {contacto && (
+                    <a href={enlaceTel(contacto.telefono)} className="text-xs text-gray-500 hover:text-gray-900 transition-colors">
+                      Llamar a {contacto.etiqueta}: {contacto.telefono}
+                    </a>
                   )}
                   {diasPicoYPlaca.length > 0 && (
                     <p className="text-xs text-gray-400">
