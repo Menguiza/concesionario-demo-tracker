@@ -14,10 +14,14 @@ import FotosVehiculo from './FotosVehiculo'
 // voluntario/obligatorio de entrega como para la devolución, y tanto desde
 // Vehículos (con botón cancelar) como desde el bloqueo de pantalla completa
 // (sin cancelar, onCancelar queda sin pasar).
-export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, onListo, onCancelar }) {
+//
+// ocultarToggleCliente llega en true cuando la reserva que disparó este
+// registro ya nació "para cliente" (con un responsable asignado) — en ese
+// caso no tiene sentido preguntar si es cliente, ya se sabe.
+export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, ocultarToggleCliente = false, onListo, onCancelar }) {
   const { firebaseUser, perfil, rol } = useAuth()
-  const [esCliente, setEsCliente] = useState(false)
-  const [nombreCliente, setNombreCliente] = useState('')
+  const [esCliente, setEsCliente] = useState(ocultarToggleCliente)
+  const [nombreCliente, setNombreCliente] = useState(ocultarToggleCliente ? reserva?.solicitadoPor?.nombre ?? '' : '')
   const [fotos, setFotos] = useState({})
   const [video, setVideo] = useState(null)
   const [documento, setDocumento] = useState(null)
@@ -26,6 +30,17 @@ export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, onLi
 
   function handleFotoChange(lado, archivo) {
     setFotos((prev) => ({ ...prev, [lado]: archivo }))
+  }
+
+  function datosEnvio() {
+    const yo = { tipo: rol, nombre: perfil?.nombre ?? '', uid: firebaseUser.uid }
+    const cliente = { tipo: 'cliente', nombre: nombreCliente, uid: null }
+    return {
+      yo,
+      quienRecibe: tipo === 'entrega' ? (esCliente ? cliente : yo) : null,
+      quienEntrega: tipo === 'entrega' ? null : yo,
+      responsable: reserva?.responsable ?? yo,
+    }
   }
 
   async function handleSubmit(e) {
@@ -44,8 +59,7 @@ export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, onLi
 
     setEnviando(true)
     try {
-      const yo = { tipo: rol, nombre: perfil?.nombre ?? '', uid: firebaseUser.uid }
-      const cliente = { tipo: 'cliente', nombre: nombreCliente, uid: null }
+      const { quienRecibe, quienEntrega, responsable } = datosEnvio()
 
       // Este formulario es autogestionado: nadie del concesionario confirma
       // quién entregó (en una entrega) ni quién recibió (en una devolución)
@@ -54,13 +68,45 @@ export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, onLi
       await registrarMovimiento({
         vehiculoId: vehiculo.id,
         tipo,
-        quienRecibe: tipo === 'entrega' ? (esCliente ? cliente : yo) : null,
-        quienEntrega: tipo === 'entrega' ? null : yo,
+        quienRecibe,
+        quienEntrega,
         motivo: reserva?.motivo ?? null,
         fotos,
         video,
         documentoEscaneado: tipo === 'entrega' && esCliente ? documento : null,
         reservaId: reserva?.id ?? null,
+        responsable,
+      })
+      onListo?.()
+    } catch (err) {
+      setError(mensajeErrorAmigable(err))
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  async function handleOmitir() {
+    setError('')
+    const confirmado = window.confirm(
+      'Vas a recibir este vehículo sin dejar fotos ni documento. Eso significa que si después aparece una novedad (un golpe, un rayón), no vas a poder probar que no fue tuya — se asume que fue durante tu préstamo. ¿Aun así quieres omitir el registro?'
+    )
+    if (!confirmado) return
+
+    setEnviando(true)
+    try {
+      const { quienRecibe, quienEntrega, responsable } = datosEnvio()
+      await registrarMovimiento({
+        vehiculoId: vehiculo.id,
+        tipo,
+        quienRecibe,
+        quienEntrega,
+        motivo: reserva?.motivo ?? null,
+        fotos: {},
+        video: null,
+        documentoEscaneado: null,
+        reservaId: reserva?.id ?? null,
+        responsable,
+        omitido: true,
       })
       onListo?.()
     } catch (err) {
@@ -76,7 +122,7 @@ export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, onLi
         {tipo === 'entrega' ? `Vas a registrar la entrega de ${vehiculo.placa}` : `Vas a registrar la devolución de ${vehiculo.placa}`}
       </p>
 
-      {tipo === 'entrega' && (
+      {tipo === 'entrega' && !ocultarToggleCliente && (
         <label className="flex items-center gap-2 text-sm text-gray-700 select-none cursor-pointer">
           <input
             type="checkbox"
@@ -88,7 +134,13 @@ export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, onLi
         </label>
       )}
 
-      {tipo === 'entrega' && esCliente && (
+      {tipo === 'entrega' && esCliente && ocultarToggleCliente && (
+        <p className="text-sm text-gray-600">
+          Cliente: <span className="font-medium text-gray-900">{nombreCliente}</span>
+        </p>
+      )}
+
+      {tipo === 'entrega' && esCliente && !ocultarToggleCliente && (
         <input
           required
           placeholder="Nombre del cliente"
@@ -121,13 +173,18 @@ export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, onLi
       )}
 
       <Alerta tipo="error">{error}</Alerta>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Boton type="submit" cargando={enviando}>
           {enviando ? 'Guardando…' : 'Guardar'}
         </Boton>
         {onCancelar && (
           <Boton type="button" variante="fantasma" onClick={onCancelar}>
             Cancelar
+          </Boton>
+        )}
+        {tipo === 'entrega' && (
+          <Boton type="button" variante="fantasma" disabled={enviando} onClick={handleOmitir} className="ml-auto text-xs">
+            Omitir registro (sin fotos)
           </Boton>
         )}
       </div>

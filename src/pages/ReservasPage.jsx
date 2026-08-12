@@ -36,7 +36,11 @@ const DIAS_SEMANA_CORTOS = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
 function BadgeResultado({ reserva }) {
   if (reserva.estado === 'cancelada') return <Badge color="gray">Cancelada</Badge>
   if (reserva.resultado === 'pendiente') return <Badge color="emerald" dot>Activa</Badge>
-  if (reserva.resultado === 'cumplida') return <Badge color="blue">Cumplida</Badge>
+  if (reserva.resultado === 'omitida') return <Badge color="amber">Recibido sin registro (omitida)</Badge>
+  if (reserva.resultado === 'cumplida') {
+    if (reserva.devolucionResultado === 'incumplida') return <Badge color="red">Devolución incumplida</Badge>
+    return <Badge color="blue">Cumplida</Badge>
+  }
   if (reserva.resultado === 'incumplida') return <Badge color="red">Incumplida</Badge>
   return null
 }
@@ -162,6 +166,7 @@ export default function ReservasPage() {
   const [picoYPlacaConfig, setPicoYPlacaConfig] = useState(null)
   const [comerciales, setComerciales] = useState([])
   const [directivos, setDirectivos] = useState([])
+  const [staffResponsable, setStaffResponsable] = useState([])
   const [mostrarCanceladas, setMostrarCanceladas] = useState(false)
   const [busqueda, setBusqueda] = useState('')
 
@@ -172,6 +177,8 @@ export default function ReservasPage() {
   const [quienSeleccion, setQuienSeleccion] = useState('')
   const [quienNombreLibre, setQuienNombreLibre] = useState('')
   const [motivo, setMotivo] = useState('')
+  const [autorizadoPorId, setAutorizadoPorId] = useState('')
+  const [responsableId, setResponsableId] = useState('')
   const [mensaje, setMensaje] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [vista, setVista] = useState('calendario')
@@ -192,6 +199,7 @@ export default function ReservasPage() {
     return suscribirUsuarios((todos) => {
       setComerciales(todos.filter((u) => u.rol === 'comercial'))
       setDirectivos(todos.filter((u) => u.rol === 'directivo'))
+      setStaffResponsable(todos.filter((u) => ['comercial', 'directivo', 'anfitriona'].includes(u.rol) && u.activo !== false))
     })
   }, [])
 
@@ -203,10 +211,13 @@ export default function ReservasPage() {
   )
   const listaPersonas = quienTipo === 'comercial' ? comerciales : quienTipo === 'directivo' ? directivos : []
 
+  const necesitaAutorizacion = quienTipo !== 'directivo'
+
   function handleCambiarQuienTipo(nuevoTipo) {
     setQuienTipo(nuevoTipo)
     setQuienSeleccion('')
     setQuienNombreLibre('')
+    setResponsableId('')
   }
 
   function personaSeleccionada() {
@@ -227,6 +238,14 @@ export default function ReservasPage() {
 
     if (fechaFin <= fechaInicio) {
       setMensaje('La hora de fin debe ser después de la hora de inicio.')
+      return
+    }
+    if (necesitaAutorizacion && !autorizadoPorId) {
+      setMensaje('Falta indicar qué directivo autorizó esta reserva.')
+      return
+    }
+    if (quienTipo === 'cliente' && !responsableId) {
+      setMensaje('Falta indicar quién queda como responsable de este préstamo.')
       return
     }
 
@@ -250,12 +269,19 @@ export default function ReservasPage() {
         if (!continuar) return
       }
 
+      const directivo = necesitaAutorizacion ? directivos.find((d) => d.id === autorizadoPorId) : null
+      const responsablePersona = quienTipo === 'cliente' ? staffResponsable.find((p) => p.id === responsableId) : null
+
       await crearReserva({
         vehiculoId,
         fechaInicio,
         fechaFin,
         solicitadoPor: { tipo: quienTipo, nombre: quienNombre, uid: quienUid },
         motivo: motivo.trim() || null,
+        autorizadoPor: directivo ? { uid: directivo.id, nombre: directivo.nombre } : null,
+        responsable: responsablePersona
+          ? { tipo: responsablePersona.rol, nombre: responsablePersona.nombre, uid: responsablePersona.id }
+          : null,
       })
       setMensaje('Reserva creada.')
       setVehiculoId('')
@@ -264,6 +290,8 @@ export default function ReservasPage() {
       setQuienSeleccion('')
       setQuienNombreLibre('')
       setMotivo('')
+      setAutorizadoPorId('')
+      setResponsableId('')
     } catch (err) {
       setMensaje(mensajeErrorAmigable(err))
     } finally {
@@ -344,6 +372,32 @@ export default function ReservasPage() {
                 </div>
               )}
             </div>
+            {quienTipo === 'cliente' && (
+              <div className="animate-slide-up">
+                <label className="block text-xs text-gray-500 mb-1">Responsable del préstamo</label>
+                <select required value={responsableId} onChange={(e) => setResponsableId(e.target.value)} className={INPUT}>
+                  <option value="">Selecciona quién queda como responsable</option>
+                  {staffResponsable.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre} ({p.rol})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {necesitaAutorizacion && (
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Autorizado por</label>
+                <select required value={autorizadoPorId} onChange={(e) => setAutorizadoPorId(e.target.value)} className={INPUT}>
+                  <option value="">Selecciona el directivo que autorizó</option>
+                  {directivos.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <input placeholder="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} className={INPUT} />
             <Boton type="submit" cargando={enviando}>
               {enviando ? 'Reservando…' : 'Reservar'}
@@ -402,6 +456,13 @@ export default function ReservasPage() {
                     {r.solicitadoPor?.tipo}: {r.solicitadoPor?.nombre}
                     {r.motivo && ` · ${r.motivo}`}
                   </p>
+                  {(r.autorizadoPor || r.responsable) && (
+                    <p className="text-xs text-gray-400">
+                      {r.autorizadoPor && `Autorizó: ${r.autorizadoPor.nombre}`}
+                      {r.autorizadoPor && r.responsable && ' · '}
+                      {r.responsable && `Responsable: ${r.responsable.nombre}`}
+                    </p>
+                  )}
                   {puedeGestionar && r.estado === 'activa' && r.resultado === 'pendiente' && (
                     <button onClick={() => handleCancelar(r.id)} className="text-xs text-red-600 hover:text-red-800 transition-colors">
                       Cancelar reserva

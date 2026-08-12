@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
-import { suscribirReservasDeUsuario } from '../features/reservas/reservasApi'
+import { suscribirReservasDeUsuario, suscribirReservasComoResponsable } from '../features/reservas/reservasApi'
 import { suscribirVehiculos } from '../features/vehiculos/vehiculosApi'
 import FormularioRegistroPropio from './FormularioRegistroPropio'
 import Tarjeta from './Tarjeta'
@@ -18,12 +18,21 @@ export default function GateReservaActiva({ children }) {
   const activo = ROLES_CON_BLOQUEO.includes(rol)
 
   const [misReservas, setMisReservas] = useState([])
+  const [reservasComoResponsable, setReservasComoResponsable] = useState([])
   const [vehiculos, setVehiculos] = useState([])
   const [ahora, setAhora] = useState(new Date())
 
   useEffect(() => {
     if (!activo || !firebaseUser) return
     return suscribirReservasDeUsuario(firebaseUser.uid, setMisReservas)
+  }, [activo, firebaseUser])
+
+  // Además de sus propias reservas, alguien puede quedar como "responsable"
+  // de una reserva hecha para un cliente (ver AnfitrionaPage/VehiculosPage) —
+  // eso también dispara el bloqueo, por eso es una suscripción aparte.
+  useEffect(() => {
+    if (!activo || !firebaseUser) return
+    return suscribirReservasComoResponsable(firebaseUser.uid, setReservasComoResponsable)
   }, [activo, firebaseUser])
 
   useEffect(() => {
@@ -39,7 +48,8 @@ export default function GateReservaActiva({ children }) {
 
   if (!activo) return children
 
-  const reservaEnCurso = misReservas.find((r) => {
+  const todasMisReservas = [...misReservas, ...reservasComoResponsable.filter((r) => !misReservas.some((m) => m.id === r.id))]
+  const reservaEnCurso = todasMisReservas.find((r) => {
     if (r.resultado !== 'pendiente') return false
     return ahora >= r.fechaInicio.toDate() && ahora <= r.fechaFin.toDate()
   })
@@ -72,7 +82,12 @@ export default function GateReservaActiva({ children }) {
             </p>
           </div>
         </div>
-        <FormularioRegistroPropio vehiculo={vehiculo} tipo="entrega" reserva={reservaEnCurso} />
+        <FormularioRegistroPropio
+          vehiculo={vehiculo}
+          tipo="entrega"
+          reserva={reservaEnCurso}
+          ocultarToggleCliente={reservaEnCurso.solicitadoPor?.tipo === 'cliente'}
+        />
         <button onClick={() => signOut(auth)} className="w-full text-xs text-gray-400 hover:text-gray-600 transition-colors">
           Salir
         </button>

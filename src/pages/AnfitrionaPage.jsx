@@ -9,6 +9,7 @@ import {
   establecerClienteActual,
 } from '../features/cola/colaApi'
 import { registrarCliente, marcarDescarte, contarClientesEfectivosEnRango } from '../features/clientes/clientesApi'
+import { buscarClienteMaestro, crearOReutilizarClienteMaestro } from '../features/clientes/clientesMaestroApi'
 import { construirOrdenInicial, elegirYRotar, elegirEquipoDelDia, asignarComercialEspecifico, pasarSinConsumirCola } from '../lib/queue'
 import { estaEnHorario } from '../lib/horario'
 import { esDiaHabil, diaHabilAnterior, pasosHabilesDesde } from '../lib/diasHabiles'
@@ -32,9 +33,41 @@ export default function AnfitrionaPage() {
   const [nombreCliente, setNombreCliente] = useState('')
   const [telefonoCliente, setTelefonoCliente] = useState('')
   const [tipoCliente, setTipoCliente] = useState('nuevo')
+  const [observaciones, setObservaciones] = useState('')
   const [pideEspecifico, setPideEspecifico] = useState(false)
   const [comercialEspecificoId, setComercialEspecificoId] = useState('')
+  const [esDelegacionExterna, setEsDelegacionExterna] = useState(false)
+  const [comercialApoderado, setComercialApoderado] = useState('')
+  const [sugerenciaCliente, setSugerenciaCliente] = useState(null)
+  const [clienteMaestroElegidoId, setClienteMaestroElegidoId] = useState(null)
   const [mostrarCambioEquipo, setMostrarCambioEquipo] = useState(false)
+
+  // Aviso de posible duplicado: mientras escribe nombre/teléfono, se busca
+  // coincidencia contra el registro maestro de clientes (por teléfono exacto
+  // o nombre parecido) — nunca fusiona sola, solo sugiere.
+  useEffect(() => {
+    // Si ya había una sugerencia confirmada y la anfitriona sigue editando
+    // nombre/teléfono, esa confirmación queda obsoleta — mejor perderla que
+    // arriesgarse a mandar la visita al cliente maestro equivocado.
+    setClienteMaestroElegidoId(null)
+    if (nombreCliente.trim().length < 3) {
+      setSugerenciaCliente(null)
+      return
+    }
+    let cancelado = false
+    const id = setTimeout(async () => {
+      try {
+        const match = await buscarClienteMaestro({ nombre: nombreCliente, telefono: telefonoCliente })
+        if (!cancelado) setSugerenciaCliente(match)
+      } catch {
+        if (!cancelado) setSugerenciaCliente(null)
+      }
+    }, 400)
+    return () => {
+      cancelado = true
+      clearTimeout(id)
+    }
+  }, [nombreCliente, telefonoCliente])
 
   useEffect(() => suscribirEquipos(setEquipos), [])
   useEffect(() => suscribirUsuarios(setUsuarios), [])
@@ -186,6 +219,21 @@ export default function AnfitrionaPage() {
     if (!cola || !equipoActivoId) return
 
     try {
+      const clienteMaestroId = await crearOReutilizarClienteMaestro({
+        nombre: nombreCliente,
+        telefono: telefonoCliente,
+        clienteMaestroIdConfirmado: clienteMaestroElegidoId,
+      })
+      const datosCliente = {
+        nombre: nombreCliente,
+        telefono: telefonoCliente,
+        tipo: tipoCliente,
+        clienteMaestroId,
+        observaciones: observaciones.trim() || null,
+        comercialApoderado: esDelegacionExterna ? comercialApoderado.trim() || null : null,
+        esDelegacionExterna,
+      }
+
       if (pideEspecifico && comercialEspecificoId) {
         const persona = comercialesTodosPorId[comercialEspecificoId]
         if (!estaEnHorario(persona?.horarioSemanal)) {
@@ -202,9 +250,7 @@ export default function AnfitrionaPage() {
               : pasarSinConsumirCola(cola.orden)
 
           const clienteRef = await registrarCliente({
-            nombre: nombreCliente,
-            telefono: telefonoCliente,
-            tipo: tipoCliente,
+            ...datosCliente,
             comercialAsignadoId: comercialEspecificoId,
             comercialSolicitado: true,
           })
@@ -216,9 +262,7 @@ export default function AnfitrionaPage() {
           // toca orden/ocupados/clienteActual de este equipo — solo queda
           // registrado como su cliente.
           await registrarCliente({
-            nombre: nombreCliente,
-            telefono: telefonoCliente,
-            tipo: tipoCliente,
+            ...datosCliente,
             comercialAsignadoId: comercialEspecificoId,
             comercialSolicitado: true,
           })
@@ -232,9 +276,7 @@ export default function AnfitrionaPage() {
           return
         }
         const clienteRef = await registrarCliente({
-          nombre: nombreCliente,
-          telefono: telefonoCliente,
-          tipo: tipoCliente,
+          ...datosCliente,
           comercialAsignadoId: elegido,
           comercialSolicitado: false,
         })
@@ -250,8 +292,13 @@ export default function AnfitrionaPage() {
     setNombreCliente('')
     setTelefonoCliente('')
     setTipoCliente('nuevo')
+    setObservaciones('')
     setPideEspecifico(false)
     setComercialEspecificoId('')
+    setEsDelegacionExterna(false)
+    setComercialApoderado('')
+    setSugerenciaCliente(null)
+    setClienteMaestroElegidoId(null)
   }
 
   const [resolviendoId, setResolviendoId] = useState(null)
@@ -369,6 +416,34 @@ export default function AnfitrionaPage() {
             onChange={(e) => setTelefonoCliente(e.target.value)}
             className={INPUT}
           />
+          {sugerenciaCliente && !clienteMaestroElegidoId && (
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-900 animate-slide-up">
+              <span>
+                ¿Es este cliente? <strong>{sugerenciaCliente.nombre}</strong>
+                {sugerenciaCliente.telefono ? ` · ${sugerenciaCliente.telefono}` : ''}
+              </span>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setClienteMaestroElegidoId(sugerenciaCliente.id)
+                    setTipoCliente('recurrente')
+                    setSugerenciaCliente(null)
+                  }}
+                  className="rounded-full bg-amber-200 px-2.5 py-1 hover:bg-amber-300 transition-colors"
+                >
+                  Sí, es él/ella
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSugerenciaCliente(null)}
+                  className="rounded-full bg-white border border-amber-300 px-2.5 py-1 hover:bg-amber-100 transition-colors"
+                >
+                  No, es nuevo
+                </button>
+              </div>
+            </div>
+          )}
           <div className="flex gap-4 text-sm">
             <label className="flex items-center gap-1.5">
               <input type="radio" checked={tipoCliente === 'nuevo'} onChange={() => setTipoCliente('nuevo')} />
@@ -403,6 +478,33 @@ export default function AnfitrionaPage() {
                 })}
             </select>
           )}
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={esDelegacionExterna}
+              onChange={(e) => {
+                setEsDelegacionExterna(e.target.checked)
+                if (e.target.checked) setPideEspecifico(true)
+              }}
+            />
+            Cliente de otra sede (delegación temporal)
+          </label>
+          {esDelegacionExterna && (
+            <input
+              required
+              placeholder="Nombre del comercial apoderado (de la otra sede)"
+              value={comercialApoderado}
+              onChange={(e) => setComercialApoderado(e.target.value)}
+              className={`${INPUT} animate-slide-up`}
+            />
+          )}
+          <textarea
+            placeholder="Observaciones (opcional)"
+            value={observaciones}
+            onChange={(e) => setObservaciones(e.target.value)}
+            rows={2}
+            className={`${INPUT} resize-none`}
+          />
           <Boton type="submit" className="w-full">
             Asignar
           </Boton>
@@ -522,12 +624,22 @@ export default function AnfitrionaPage() {
                       : 'Puede recibir un cliente'}
                   </span>
                   <button
+                    type="button"
+                    role="switch"
+                    aria-checked={!ocupado}
                     onClick={() => toggleOcupado(id)}
-                    className={`text-xs rounded-full px-3 py-1 shrink-0 font-medium transition-colors ${
-                      ocupado ? 'bg-amber-100 text-amber-800 hover:bg-amber-200' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                    }`}
+                    className="flex items-center gap-2 shrink-0"
                   >
-                    {ocupado ? 'Marcar libre' : 'Marcar ocupado'}
+                    <span className={`text-xs font-medium ${ocupado ? 'text-gray-500' : 'text-emerald-700'}`}>
+                      {ocupado ? 'Ocupado' : 'Disponible'}
+                    </span>
+                    <span className={`relative w-9 h-5 rounded-full transition-colors ${ocupado ? 'bg-gray-300' : 'bg-emerald-500'}`}>
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+                          ocupado ? 'translate-x-0' : 'translate-x-4'
+                        }`}
+                      />
+                    </span>
                   </button>
                 </div>
               )}

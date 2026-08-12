@@ -19,6 +19,11 @@ export function formatoFechaLarga(fecha) {
   return fecha.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
+// "8:00 a. m." — para avisos que necesitan solo la hora, no la fecha completa.
+export function formatoHoraCorta(fecha) {
+  return fecha.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })
+}
+
 export function rangoSemanaPasada(ahora = new Date()) {
   const diffAlLunes = (ahora.getDay() + 6) % 7
   const lunesEstaSemana = new Date(ahora)

@@ -2,12 +2,18 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { suscribirVehiculos, crearVehiculo } from '../features/vehiculos/vehiculosApi'
 import { registrarMovimiento } from '../features/movimientos/movimientosApi'
-import { crearReserva, suscribirReservasDeUsuario, suscribirReservas } from '../features/reservas/reservasApi'
+import {
+  crearReserva,
+  suscribirReservasDeUsuario,
+  suscribirReservas,
+  verificarDisponibilidad,
+  proximasReservasDelVehiculo,
+} from '../features/reservas/reservasApi'
 import { suscribirPicoYPlacaConfig } from '../features/picoYPlaca/picoYPlacaApi'
 import { suscribirUsuarios } from '../features/usuarios/usuariosApi'
 import { estaBloqueadoPorPicoYPlaca, diasBloqueadosPorPicoYPlacaEnRango, diasSemanaPicoYPlaca } from '../lib/picoYPlaca'
 import { mensajeErrorAmigable } from '../lib/erroresFirebase'
-import { parseFechaLocal, formatoFechaLarga } from '../lib/fechas'
+import { parseFechaLocal, formatoFechaLarga, formatoHoraCorta } from '../lib/fechas'
 import { fotosFaltantes } from '../lib/fotosVehiculo'
 import { coincideBusqueda, unirConY } from '../lib/texto'
 import { ETIQUETA_DIA } from '../lib/horario'
@@ -31,6 +37,32 @@ const DURACIONES_ASIGNACION = [
   { horas: 4, label: '4 horas' },
   { horas: 8, label: 'Todo el día (8 horas)' },
 ]
+
+// Bloqueo duro si la ventana pedida se cruza con una reserva existente;
+// aviso (no bloqueante) si hay una reserva próxima poco después — para que
+// quien presta el vehículo pueda avisar "debe estar de vuelta antes de tal
+// hora" en vez de enterarse tarde (ver feedback: "dejando poco tiempo a la
+// reacción"). Nunca pasa por mensajeErrorAmigable porque ese ignora
+// err.message y solo mira err.code.
+async function validarChoquesReserva(vehiculoId, fechaInicio, fechaFin, placa) {
+  const { disponible, conflictos } = await verificarDisponibilidad(vehiculoId, fechaInicio, fechaFin)
+  if (!disponible) {
+    const primero = conflictos[0]
+    return {
+      ok: false,
+      mensaje: `${placa} ya tiene una reserva de ${primero.solicitadoPor?.nombre ?? 'alguien más'} que se cruza con este horario. Elige otro vehículo o achica la duración.`,
+    }
+  }
+
+  const proximas = await proximasReservasDelVehiculo(vehiculoId, fechaFin)
+  if (proximas.length === 0) return { ok: true, mensaje: null }
+
+  const siguiente = proximas[0]
+  const continuar = window.confirm(
+    `${placa} tiene una reserva de ${siguiente.solicitadoPor?.nombre ?? 'alguien más'} el ${formatoFechaLarga(siguiente.fechaInicio.toDate())} a las ${formatoHoraCorta(siguiente.fechaInicio.toDate())}. Debe estar disponible antes de esa hora. ¿Continuar de todas formas?`
+  )
+  return { ok: continuar, mensaje: null }
+}
 
 function EstadoBadge({ vehiculo, picoYPlacaConfig, asignadoAhora }) {
   const bloqueado = estaBloqueadoPorPicoYPlaca(vehiculo, picoYPlacaConfig)
@@ -108,11 +140,19 @@ function ConsultaPicoYPlacaRapida({ vehiculo, picoYPlacaConfig }) {
 // directivo se les asigna con FormularioAsignacionInstantanea, que los deja
 // auto-registrarse). Para recepción no pide nada de "quién entrega" porque ya
 // se sabe por vehiculo.quienTiene.
-function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, onCerrar }) {
+//
+// La entrega a cliente crea primero una reserva (inicio=ahora) con
+// responsable + autorizadoPor, y solo después registra el movimiento atado a
+// ella — así todo préstamo (instantáneo o no) queda bajo el mismo mecanismo
+// de responsabilidad/incumplimiento que ya usan comercial y directivo.
+function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, directivosActivos, staffResponsable, onCerrar }) {
   const { perfil } = useAuth()
   const tipo = vehiculo.estado === 'prestado' ? 'recepcion' : 'entrega'
   const [nombreCliente, setNombreCliente] = useState('')
   const [motivo, setMotivo] = useState('')
+  const [duracionHoras, setDuracionHoras] = useState(4)
+  const [responsableId, setResponsableId] = useState('')
+  const [autorizadoPorId, setAutorizadoPorId] = useState('')
   const [fotos, setFotos] = useState({})
   const [video, setVideo] = useState(null)
   const [documento, setDocumento] = useState(null)
@@ -129,35 +169,89 @@ function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, onCerrar }
     e.preventDefault()
     setError('')
 
-    const faltantes = fotosFaltantes(fotos)
-    if (faltantes.length > 0) {
-      setError(`Faltan fotos: ${faltantes.map((f) => f.label).join(', ')}.`)
-      return
-    }
-    if (tipo === 'entrega' && !documento) {
-      setError('El documento firmado escaneado es obligatorio.')
-      return
-    }
-    if (bloqueadoPorPicoYPlaca) {
-      const continuar = window.confirm(
-        `${vehiculo.placa} tiene pico y placa hoy. Solo continúa si tienes autorización explícita para usarlo de todas formas. ¿Confirmas que sí?`
-      )
-      if (!continuar) return
+    if (tipo === 'entrega') {
+      const faltantes = fotosFaltantes(fotos)
+      if (faltantes.length > 0) {
+        setError(`Faltan fotos: ${faltantes.map((f) => f.label).join(', ')}.`)
+        return
+      }
+      if (!documento) {
+        setError('El documento firmado escaneado es obligatorio.')
+        return
+      }
+      if (!responsableId) {
+        setError('Falta indicar quién queda como responsable de este préstamo.')
+        return
+      }
+      if (!autorizadoPorId) {
+        setError('Falta indicar qué directivo autorizó este préstamo.')
+        return
+      }
+      if (bloqueadoPorPicoYPlaca) {
+        const continuar = window.confirm(
+          `${vehiculo.placa} tiene pico y placa hoy. Solo continúa si tienes autorización explícita para usarlo de todas formas. ¿Confirmas que sí?`
+        )
+        if (!continuar) return
+      }
     }
 
     setEnviando(true)
     try {
       const anfitriona = { tipo: 'anfitriona', nombre: perfil?.nombre ?? '', uid: null }
       const cliente = { tipo: 'cliente', nombre: nombreCliente, uid: null }
+
+      if (tipo === 'recepcion') {
+        await registrarMovimiento({
+          vehiculoId: vehiculo.id,
+          tipo,
+          quienRecibe: anfitriona,
+          quienEntrega: vehiculo.quienTiene ?? cliente,
+          motivo: motivo.trim() || null,
+          fotos,
+          video,
+          documentoEscaneado: null,
+        })
+        onCerrar()
+        return
+      }
+
+      const fechaInicio = new Date()
+      const fechaFin = new Date(fechaInicio)
+      fechaFin.setHours(fechaFin.getHours() + duracionHoras)
+
+      const resultadoChoque = await validarChoquesReserva(vehiculo.id, fechaInicio, fechaFin, vehiculo.placa)
+      if (!resultadoChoque.ok) {
+        if (resultadoChoque.mensaje) setError(resultadoChoque.mensaje)
+        setEnviando(false)
+        return
+      }
+
+      const responsablePersona = staffResponsable.find((p) => p.id === responsableId)
+      const directivo = directivosActivos.find((d) => d.id === autorizadoPorId)
+      const responsable = { tipo: responsablePersona.rol, nombre: responsablePersona.nombre, uid: responsablePersona.id }
+      const autorizadoPor = { uid: directivo.id, nombre: directivo.nombre }
+
+      const reservaRef = await crearReserva({
+        vehiculoId: vehiculo.id,
+        fechaInicio,
+        fechaFin,
+        solicitadoPor: { tipo: 'cliente', nombre: nombreCliente, uid: null },
+        motivo: motivo.trim() || null,
+        autorizadoPor,
+        responsable,
+      })
+
       await registrarMovimiento({
         vehiculoId: vehiculo.id,
         tipo,
-        quienRecibe: tipo === 'entrega' ? cliente : anfitriona,
-        quienEntrega: tipo === 'entrega' ? anfitriona : (vehiculo.quienTiene ?? cliente),
+        quienRecibe: cliente,
+        quienEntrega: anfitriona,
         motivo: motivo.trim() || null,
         fotos,
         video,
-        documentoEscaneado: tipo === 'entrega' ? documento : null,
+        documentoEscaneado: documento,
+        reservaId: reservaRef.id,
+        responsable,
       })
       onCerrar()
     } catch (err) {
@@ -180,6 +274,41 @@ function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, onCerrar }
       )}
       {tipo === 'entrega' && (
         <input placeholder="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} className={INPUT} />
+      )}
+      {tipo === 'entrega' && (
+        <select value={duracionHoras} onChange={(e) => setDuracionHoras(Number(e.target.value))} className={INPUT}>
+          {DURACIONES_ASIGNACION.map((d) => (
+            <option key={d.horas} value={d.horas}>
+              {d.label}
+            </option>
+          ))}
+        </select>
+      )}
+      {tipo === 'entrega' && (
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Responsable del préstamo</label>
+          <select required value={responsableId} onChange={(e) => setResponsableId(e.target.value)} className={INPUT}>
+            <option value="">Selecciona quién queda como responsable</option>
+            {staffResponsable.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre} ({p.rol})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {tipo === 'entrega' && (
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Autorizado por</label>
+          <select required value={autorizadoPorId} onChange={(e) => setAutorizadoPorId(e.target.value)} className={INPUT}>
+            <option value="">Selecciona el directivo que autorizó</option>
+            {directivosActivos.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
       )}
       <FotosVehiculo fotos={fotos} onChange={handleFotoChange} />
       <CampoArchivo
@@ -216,29 +345,49 @@ function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, onCerrar }
 
 // Crea una reserva que arranca ya — dispara el bloqueo de registro obligatorio
 // en la cuenta del comercial/directivo elegido. Anfitriona/admin no suben fotos.
-function FormularioAsignacionInstantanea({ vehiculo, personas, onCerrar }) {
+// Si a quien se le asigna ya es directivo, no hace falta autorización de otro
+// directivo (se asume autosuficiente).
+function FormularioAsignacionInstantanea({ vehiculo, personas, directivosActivos, onCerrar }) {
   const [personaId, setPersonaId] = useState('')
   const [duracionHoras, setDuracionHoras] = useState(1)
+  const [motivo, setMotivo] = useState('')
+  const [autorizadoPorId, setAutorizadoPorId] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
+
+  const persona = personas.find((p) => p.id === personaId)
+  const necesitaAutorizacion = persona && persona.rol !== 'directivo'
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    const persona = personas.find((p) => p.id === personaId)
     if (!persona) return
+    if (necesitaAutorizacion && !autorizadoPorId) {
+      setError('Falta indicar qué directivo autorizó esta asignación.')
+      return
+    }
 
     setEnviando(true)
     try {
       const fechaInicio = new Date()
       const fechaFin = new Date(fechaInicio)
       fechaFin.setHours(fechaFin.getHours() + duracionHoras)
+
+      const resultadoChoque = await validarChoquesReserva(vehiculo.id, fechaInicio, fechaFin, vehiculo.placa)
+      if (!resultadoChoque.ok) {
+        if (resultadoChoque.mensaje) setError(resultadoChoque.mensaje)
+        setEnviando(false)
+        return
+      }
+
+      const directivo = necesitaAutorizacion ? directivosActivos.find((d) => d.id === autorizadoPorId) : null
       await crearReserva({
         vehiculoId: vehiculo.id,
         fechaInicio,
         fechaFin,
         solicitadoPor: { tipo: persona.rol, nombre: persona.nombre, uid: persona.id },
-        motivo: null,
+        motivo: motivo.trim() || null,
+        autorizadoPor: directivo ? { uid: directivo.id, nombre: directivo.nombre } : null,
       })
       onCerrar()
     } catch (err) {
@@ -266,6 +415,20 @@ function FormularioAsignacionInstantanea({ vehiculo, personas, onCerrar }) {
           </option>
         ))}
       </select>
+      <input placeholder="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} className={INPUT} />
+      {necesitaAutorizacion && (
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Autorizado por</label>
+          <select required value={autorizadoPorId} onChange={(e) => setAutorizadoPorId(e.target.value)} className={INPUT}>
+            <option value="">Selecciona el directivo que autorizó</option>
+            {directivosActivos.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <p className="text-xs text-gray-400">
         A esa persona le va a aparecer el registro obligatorio de entrega apenas entre a la app (o ya, si está adentro).
       </p>
@@ -287,7 +450,7 @@ export default function VehiculosPage() {
   const gestionAmplia = ROLES_GESTION_AMPLIA.includes(rol)
   const [vehiculos, setVehiculos] = useState([])
   const [picoYPlacaConfig, setPicoYPlacaConfig] = useState(null)
-  const [personasAsignables, setPersonasAsignables] = useState([])
+  const [usuariosTodos, setUsuariosTodos] = useState([])
   const [misReservas, setMisReservas] = useState([])
   const [todasReservas, setTodasReservas] = useState([])
   const [accionAbierta, setAccionAbierta] = useState(null)
@@ -303,10 +466,14 @@ export default function VehiculosPage() {
 
   useEffect(() => {
     if (!gestionAmplia) return
-    return suscribirUsuarios((todos) =>
-      setPersonasAsignables(todos.filter((u) => (u.rol === 'comercial' || u.rol === 'directivo') && u.activo !== false))
-    )
+    return suscribirUsuarios(setUsuariosTodos)
   }, [gestionAmplia])
+
+  const personasAsignables = usuariosTodos.filter((u) => (u.rol === 'comercial' || u.rol === 'directivo') && u.activo !== false)
+  const directivosActivos = usuariosTodos.filter((u) => u.rol === 'directivo' && u.activo !== false)
+  const staffResponsable = usuariosTodos.filter(
+    (u) => ['comercial', 'directivo', 'anfitriona'].includes(u.rol) && u.activo !== false
+  )
 
   useEffect(() => {
     if (gestionAmplia || !firebaseUser) return
@@ -483,11 +650,18 @@ export default function VehiculosPage() {
                 <FormularioMovimientoAnfitriona
                   vehiculo={v}
                   picoYPlacaConfig={picoYPlacaConfig}
+                  directivosActivos={directivosActivos}
+                  staffResponsable={staffResponsable}
                   onCerrar={() => setAccionAbierta(null)}
                 />
               )}
               {gestionAmplia && accionAbierta === `${v.id}-asig` && (
-                <FormularioAsignacionInstantanea vehiculo={v} personas={personasAsignables} onCerrar={() => setAccionAbierta(null)} />
+                <FormularioAsignacionInstantanea
+                  vehiculo={v}
+                  personas={personasAsignables}
+                  directivosActivos={directivosActivos}
+                  onCerrar={() => setAccionAbierta(null)}
+                />
               )}
               {!gestionAmplia && accionAbierta === `${v.id}-mov` && relacion.tipo !== 'ninguna' && (
                 <div className="mt-3 bg-gray-50 rounded-xl p-4 animate-slide-up">

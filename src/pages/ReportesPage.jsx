@@ -112,9 +112,14 @@ function formatoFechaHora(timestamp) {
 }
 
 async function construirReporteMovimientos(libro, { desde, hasta, vehiculoId, vehiculosPorId }) {
-  const movimientos = (await listarMovimientosEnRango(desde, hasta))
+  const [movimientosSinFiltrar, reservas] = await Promise.all([
+    listarMovimientosEnRango(desde, hasta),
+    listarReservasEnRango(desde, hasta),
+  ])
+  const movimientos = movimientosSinFiltrar
     .filter((m) => !vehiculoId || m.vehiculoId === vehiculoId)
     .sort((a, b) => a.fecha.toDate() - b.fecha.toDate())
+  const reservasPorId = Object.fromEntries(reservas.map((r) => [r.id, r]))
 
   const columnas = [
     { header: 'Fecha', key: 'fecha', width: 18 },
@@ -123,6 +128,9 @@ async function construirReporteMovimientos(libro, { desde, hasta, vehiculoId, ve
     { header: 'Tipo', key: 'tipo', width: 12 },
     { header: 'Quién recibe', key: 'quienRecibe', width: 22 },
     { header: 'Quién entrega', key: 'quienEntrega', width: 22 },
+    { header: 'Responsable', key: 'responsable', width: 22 },
+    { header: 'Autorizado por', key: 'autorizadoPor', width: 22 },
+    { header: 'Omitido', key: 'omitido', width: 12 },
     { header: 'Motivo', key: 'motivo', width: 24 },
     ...columnasAdjuntos(),
   ]
@@ -131,6 +139,7 @@ async function construirReporteMovimientos(libro, { desde, hasta, vehiculoId, ve
 
   for (const m of movimientos) {
     const vehiculo = vehiculosPorId[m.vehiculoId]
+    const reserva = m.reservaId ? reservasPorId[m.reservaId] : null
     const fila = hoja.addRow({
       fecha: formatoFechaHora(m.fecha),
       placa: vehiculo?.placa ?? '—',
@@ -138,6 +147,9 @@ async function construirReporteMovimientos(libro, { desde, hasta, vehiculoId, ve
       tipo: m.tipo === 'entrega' ? 'Entrega' : 'Recepción',
       quienRecibe: m.quienRecibe?.nombre || 'N/A',
       quienEntrega: m.quienEntrega?.nombre || 'N/A',
+      responsable: m.responsable?.nombre ?? '',
+      autorizadoPor: reserva?.autorizadoPor?.nombre ?? '',
+      omitido: m.omitido ? 'Sí' : 'No',
       motivo: m.motivo ?? '',
     }).number
     hoja.getRow(fila).height = ALTO_FILA_DATOS
@@ -162,6 +174,9 @@ async function construirReporteClientes(libro, { desde, hasta, comercialId, usua
     { header: 'Pidió específico', key: 'especifico', width: 15 },
     { header: 'Efectivo', key: 'efectivo', width: 12 },
     { header: 'Motivo descarte', key: 'motivoDescarte', width: 24 },
+    { header: 'Observaciones', key: 'observaciones', width: 28 },
+    { header: 'Comercial apoderado (otra sede)', key: 'comercialApoderado', width: 26 },
+    { header: 'ID cliente maestro', key: 'clienteMaestroId', width: 22 },
   ]
   const hoja = agregarHojaTabular(libro, 'Clientes', columnas)
 
@@ -175,6 +190,9 @@ async function construirReporteClientes(libro, { desde, hasta, comercialId, usua
       especifico: c.comercialSolicitado ? 'Sí' : 'No',
       efectivo: c.efectivo ? 'Sí' : 'No',
       motivoDescarte: c.efectivo ? '' : (c.motivoDescarte ?? ''),
+      observaciones: c.observaciones ?? '',
+      comercialApoderado: c.comercialApoderado ?? '',
+      clienteMaestroId: c.clienteMaestroId ?? '',
     })
   }
 
@@ -201,6 +219,9 @@ async function construirReporteReservas(libro, { desde, hasta, personaId, vehicu
     { header: 'Fin', key: 'fin', width: 18 },
     { header: 'Estado', key: 'estado', width: 12 },
     { header: 'Resultado', key: 'resultado', width: 12 },
+    { header: 'Resultado devolución', key: 'devolucionResultado', width: 18 },
+    { header: 'Autorizado por', key: 'autorizadoPor', width: 22 },
+    { header: 'Responsable', key: 'responsable', width: 22 },
     { header: 'Motivo', key: 'motivo', width: 22 },
     ...columnasAdjuntos(),
   ]
@@ -208,7 +229,8 @@ async function construirReporteReservas(libro, { desde, hasta, personaId, vehicu
   const presupuesto = crearPresupuestoImagenes()
 
   const ROTULO_ESTADO = { activa: 'Activa', cancelada: 'Cancelada' }
-  const ROTULO_RESULTADO = { pendiente: 'Pendiente', cumplida: 'Cumplida', incumplida: 'Incumplida' }
+  const ROTULO_RESULTADO = { pendiente: 'Pendiente', cumplida: 'Cumplida', incumplida: 'Incumplida', omitida: 'Omitida' }
+  const ROTULO_DEVOLUCION = { pendiente: 'Pendiente', completada: 'Completada', incumplida: 'Incumplida' }
 
   for (const r of reservasFiltradas) {
     const vehiculo = vehiculosPorId[r.vehiculoId]
@@ -222,6 +244,9 @@ async function construirReporteReservas(libro, { desde, hasta, personaId, vehicu
       fin: formatoFechaHora(r.fechaFin),
       estado: ROTULO_ESTADO[r.estado] ?? r.estado,
       resultado: ROTULO_RESULTADO[r.resultado] ?? r.resultado,
+      devolucionResultado: ROTULO_DEVOLUCION[r.devolucionResultado] ?? '',
+      autorizadoPor: r.autorizadoPor?.nombre ?? '',
+      responsable: r.responsable?.nombre ?? '',
       motivo: r.motivo ?? '',
     }).number
     hoja.getRow(fila).height = ALTO_FILA_DATOS

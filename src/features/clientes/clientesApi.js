@@ -12,13 +12,27 @@ import {
 } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 
-export function registrarCliente({ nombre, telefono, tipo, comercialAsignadoId, comercialSolicitado }) {
+export function registrarCliente({
+  nombre,
+  telefono,
+  tipo,
+  comercialAsignadoId,
+  comercialSolicitado,
+  clienteMaestroId = null,
+  observaciones = null,
+  comercialApoderado = null,
+  esDelegacionExterna = false,
+}) {
   return addDoc(collection(db, 'clientes'), {
     nombre,
     telefono: telefono ?? null,
     tipo,
     comercialAsignadoId,
     comercialSolicitado: !!comercialSolicitado,
+    clienteMaestroId,
+    observaciones,
+    comercialApoderado,
+    esDelegacionExterna: !!esDelegacionExterna,
     efectivo: true,
     motivoDescarte: null,
     fechaHora: serverTimestamp(),

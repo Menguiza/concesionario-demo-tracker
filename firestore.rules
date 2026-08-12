@@ -79,10 +79,28 @@ service cloud.firestore {
     match /reservas/{id} {
       allow read: if autenticado();
       allow write: if esAdmin() || esAnfitriona() || esDirectivo();
-      // Comercial puede cerrar (marcar cumplida) únicamente su propia
-      // reserva, y solo esos dos campos — no puede crear ni cancelar reservas.
-      allow update: if esComercial() && resource.data.solicitadoPor.uid == request.auth.uid &&
+      // Comercial puede cerrar (marcar cumplida/omitida) únicamente su
+      // propia reserva, o aquella donde quedó como "responsable" de un
+      // préstamo a cliente — y solo esos dos campos. El "&&" corta antes de
+      // leer .uid cuando responsable es null, para no reventar la regla con
+      // un error de "propiedad de null".
+      allow update: if esComercial() &&
+        (resource.data.solicitadoPor.uid == request.auth.uid ||
+          (resource.data.responsable != null && resource.data.responsable.uid == request.auth.uid)) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['resultado', 'movimientoId']);
+      // devolucionResultado/movimientoDevolucionId se marcan automáticamente
+      // cuando a ALGUIEN MÁS le toca recibir un vehículo que otra persona
+      // nunca devolvió (ver registrarMovimiento) — no hay forma de saber de
+      // antemano cuál es "la reserva propia" del que hace el reemplazo, así
+      // que cualquier comercial puede tocar esos dos campos en cualquier
+      // reserva. Sigue sin poder tocar resultado/movimientoId/lo demás.
+      allow update: if esComercial() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['devolucionResultado', 'movimientoDevolucionId']);
+    }
+
+    match /clientesMaestro/{id} {
+      allow read: if autenticado();
+      allow create, update: if esAdmin() || esAnfitriona();
     }
 
     match /picoYPlacaConfig/{id} {

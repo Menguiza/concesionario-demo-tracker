@@ -5,6 +5,7 @@ import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
 import { agruparClientesPorDia, formatoTituloDia } from '../lib/agruparClientesPorDia'
 import { fechaLocalYYYYMMDD } from '../lib/fechas'
 import { coincideBusqueda } from '../lib/texto'
+import { enlaceTel } from '../lib/telefono'
 import { INPUT_SM } from '../lib/estilos'
 import { useAuth } from '../context/AuthContext'
 import Tarjeta from '../components/Tarjeta'
@@ -142,6 +143,16 @@ export default function ComercialesPage() {
                 </p>
                 <Badge color={c.activo === false ? 'gray' : 'emerald'}>{c.activo === false ? 'Inactivo' : 'Activo'}</Badge>
               </button>
+
+              {c.telefono && (
+                <a
+                  href={enlaceTel(c.telefono)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="pl-5 -mt-1 block text-xs text-gray-500 hover:text-gray-900 transition-colors w-fit"
+                >
+                  {c.telefono}
+                </a>
+              )}
 
               <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5">
                 <span className="text-xs text-gray-600">
