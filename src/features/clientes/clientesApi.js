@@ -12,6 +12,11 @@ import {
 } from 'firebase/firestore'
 import { db } from '../../firebase/config'
 
+// referidoPor es texto libre y opcional: quién señaló a este comercial en
+// concreto cuando se pide específicamente — puede ser "lo delegó Andrea de
+// la sede Norte" o "el cliente lo conoce de antes", lo que aplique. No se
+// fuerza a elegir entre categorías porque en la vida real no siempre es uno
+// de dos casos limpios.
 export function registrarCliente({
   nombre,
   telefono,
@@ -20,8 +25,7 @@ export function registrarCliente({
   comercialSolicitado,
   clienteMaestroId = null,
   observaciones = null,
-  comercialApoderado = null,
-  esDelegacionExterna = false,
+  referidoPor = null,
 }) {
   return addDoc(collection(db, 'clientes'), {
     nombre,
@@ -31,8 +35,7 @@ export function registrarCliente({
     comercialSolicitado: !!comercialSolicitado,
     clienteMaestroId,
     observaciones,
-    comercialApoderado,
-    esDelegacionExterna: !!esDelegacionExterna,
+    referidoPor,
     efectivo: true,
     motivoDescarte: null,
     fechaHora: serverTimestamp(),

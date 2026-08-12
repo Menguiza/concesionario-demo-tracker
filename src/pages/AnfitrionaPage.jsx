@@ -40,13 +40,11 @@ export default function AnfitrionaPage() {
   const [observaciones, setObservaciones] = useState('')
   const [pideEspecifico, setPideEspecifico] = useState(false)
   const [comercialEspecificoId, setComercialEspecificoId] = useState('')
-  // 'cliente': el cliente pidió a esa persona por nombre. 'delegacion': un
-  // comercial de otra sede se lo pasó a este. Antes esto vivía en un
-  // checkbox aparte de "otra sede" que forzaba pideEspecifico — mezclaba el
-  // "quién" con el "por qué" y era fácil de malinterpretar (sobre todo en el
-  // Excel). Ahora es una sub-pregunta de "pide específico", no un caso aparte.
-  const [motivoEspecifico, setMotivoEspecifico] = useState('cliente')
-  const [comercialApoderado, setComercialApoderado] = useState('')
+  // Texto libre, opcional: quién señaló a este comercial en concreto (un
+  // comercial de otra sede que delegó, o simplemente que el cliente lo pidió
+  // por nombre) — sin forzar a elegir entre categorías, porque en la
+  // realidad no siempre es uno de dos casos limpios.
+  const [referidoPor, setReferidoPor] = useState('')
   const [sugerenciaCliente, setSugerenciaCliente] = useState(null)
   const [clienteMaestroElegidoId, setClienteMaestroElegidoId] = useState(null)
   const [mostrarCambioEquipo, setMostrarCambioEquipo] = useState(false)
@@ -239,15 +237,13 @@ export default function AnfitrionaPage() {
         telefono: telefonoCliente,
         clienteMaestroIdConfirmado: clienteMaestroElegidoId,
       })
-      const esDelegacionExterna = pideEspecifico && motivoEspecifico === 'delegacion'
       const datosCliente = {
         nombre: nombreCliente,
         telefono: telefonoCliente,
         tipo: tipoCliente,
         clienteMaestroId,
         observaciones: observaciones.trim() || null,
-        comercialApoderado: esDelegacionExterna ? comercialApoderado.trim() || null : null,
-        esDelegacionExterna,
+        referidoPor: pideEspecifico ? referidoPor.trim() || null : null,
       }
 
       if (pideEspecifico && comercialEspecificoId) {
@@ -311,8 +307,7 @@ export default function AnfitrionaPage() {
     setObservaciones('')
     setPideEspecifico(false)
     setComercialEspecificoId('')
-    setMotivoEspecifico('cliente')
-    setComercialApoderado('')
+    setReferidoPor('')
     setSugerenciaCliente(null)
     setClienteMaestroElegidoId(null)
   }
@@ -497,28 +492,12 @@ export default function AnfitrionaPage() {
             </select>
           )}
           {pideEspecifico && (
-            <div className="space-y-1.5 pl-1 animate-slide-up">
-              <p className="text-xs text-gray-500">¿Por qué se pide específicamente?</p>
-              <div className="flex flex-wrap gap-4 text-sm">
-                <label className="flex items-center gap-1.5">
-                  <input type="radio" checked={motivoEspecifico === 'cliente'} onChange={() => setMotivoEspecifico('cliente')} />
-                  El cliente lo pidió
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input type="radio" checked={motivoEspecifico === 'delegacion'} onChange={() => setMotivoEspecifico('delegacion')} />
-                  Un comercial de otra sede lo delegó
-                </label>
-              </div>
-              {motivoEspecifico === 'delegacion' && (
-                <input
-                  required
-                  placeholder="Nombre del comercial de la otra sede"
-                  value={comercialApoderado}
-                  onChange={(e) => setComercialApoderado(e.target.value)}
-                  className={`${INPUT} animate-slide-up`}
-                />
-              )}
-            </div>
+            <input
+              placeholder="¿Quién lo remite? (opcional — ej: lo delegó un comercial de otra sede, o lo pidió por nombre)"
+              value={referidoPor}
+              onChange={(e) => setReferidoPor(e.target.value)}
+              className={`${INPUT} animate-slide-up`}
+            />
           )}
           <textarea
             placeholder="Observaciones (opcional)"

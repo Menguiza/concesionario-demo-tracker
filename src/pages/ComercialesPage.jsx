@@ -141,13 +141,19 @@ export default function ComercialesPage() {
   const [comerciales, setComerciales] = useState([])
   const [etiquetas, setEtiquetas] = useState([])
   const [expandidoId, setExpandidoId] = useState(null)
+  const [editandoTagsId, setEditandoTagsId] = useState(null)
   const [busqueda, setBusqueda] = useState('')
 
   useEffect(() => suscribirUsuarios((todos) => setComerciales(todos.filter((u) => u.rol === 'comercial'))), [])
   useEffect(() => suscribirEtiquetas(setEtiquetas), [])
 
   const etiquetasPorId = Object.fromEntries(etiquetas.map((t) => [t.id, t]))
-  const comercialesVisibles = comerciales.filter((c) => coincideBusqueda(c.nombre, busqueda))
+  // La búsqueda también matchea por nombre de etiqueta, para poder filtrar
+  // rápido "quién es de Planta" sin tener que abrir cada tarjeta.
+  const comercialesVisibles = comerciales.filter((c) => {
+    const nombresTags = (c.tags ?? []).map((id) => etiquetasPorId[id]?.nombre).filter(Boolean).join(' ')
+    return coincideBusqueda(`${c.nombre} ${nombresTags}`, busqueda)
+  })
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -159,7 +165,9 @@ export default function ComercialesPage() {
         </Alerta>
       )}
       {comerciales.length === 0 && <Vacio titulo="Todavía no hay comerciales registrados" />}
-      {comerciales.length > 0 && <BarraBusqueda valor={busqueda} onChange={setBusqueda} placeholder="Buscar comercial..." />}
+      {comerciales.length > 0 && (
+        <BarraBusqueda valor={busqueda} onChange={setBusqueda} placeholder="Buscar por nombre o etiqueta..." />
+      )}
       {comerciales.length > 0 && comercialesVisibles.length === 0 && (
         <Vacio titulo="Sin resultados" descripcion={`Nada coincide con "${busqueda}".`} />
       )}
@@ -167,36 +175,60 @@ export default function ComercialesPage() {
         {comercialesVisibles.map((c, i) => {
           const llegadaHoy = c.ultimaLlegada?.fecha === fechaLocalYYYYMMDD() ? c.ultimaLlegada : null
           const expandido = expandidoId === c.id
+          const editandoTags = editandoTagsId === c.id
           return (
             <Tarjeta key={c.id} animar style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }} className="p-3 space-y-2">
-              <button
-                onClick={() => setExpandidoId(expandido ? null : c.id)}
-                className="flex items-center justify-between w-full text-left"
-              >
-                <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+              <div className="flex items-start justify-between gap-2">
+                <button
+                  onClick={() => setExpandidoId(expandido ? null : c.id)}
+                  className="flex items-center gap-1.5 text-left min-w-0"
+                >
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"
-                    className={`w-3.5 h-3.5 text-gray-400 transition-transform duration-200 ${expandido ? 'rotate-90' : ''}`}
+                    className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform duration-200 ${expandido ? 'rotate-90' : ''}`}
                   >
                     <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  {c.nombre}
-                </p>
-                <Badge color={c.activo === false ? 'gray' : 'emerald'}>{c.activo === false ? 'Inactivo' : 'Activo'}</Badge>
-              </button>
+                  <span className="text-sm font-medium text-gray-900 truncate">{c.nombre}</span>
+                </button>
+                <Badge color={c.activo === false ? 'gray' : 'emerald'} className="shrink-0">
+                  {c.activo === false ? 'Inactivo' : 'Activo'}
+                </Badge>
+              </div>
+
+              {/* Etiquetas justo debajo del nombre, siempre visibles — no
+                  hace falta expandir la tarjeta ni bajar hasta los clientes
+                  para verlas o (admin/directivo) editarlas con el "+". */}
+              <div className="pl-5 flex flex-wrap items-center gap-1.5">
+                <EtiquetasChips tagIds={c.tags} etiquetasPorId={etiquetasPorId} />
+                {puedeAsignarTags && (
+                  <button
+                    type="button"
+                    onClick={() => setEditandoTagsId(editandoTags ? null : c.id)}
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium shrink-0 transition-colors ${
+                      editandoTags ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                    aria-label={`Editar etiquetas de ${c.nombre}`}
+                  >
+                    {editandoTags ? '×' : '+'}
+                  </button>
+                )}
+              </div>
+              {editandoTags && (
+                <div className="pl-5 animate-slide-up">
+                  <EditorEtiquetasComercial comercial={c} etiquetas={etiquetas} />
+                </div>
+              )}
 
               {c.telefono && (
                 <a
                   href={enlaceTel(c.telefono)}
-                  onClick={(e) => e.stopPropagation()}
                   className="pl-5 -mt-1 block text-xs text-gray-500 hover:text-gray-900 transition-colors w-fit"
                 >
                   {c.telefono}
                 </a>
               )}
-
-              <EtiquetasChips tagIds={c.tags} etiquetasPorId={etiquetasPorId} className="pl-5" />
 
               <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2.5 py-1.5">
                 <span className="text-xs text-gray-600">
@@ -212,8 +244,7 @@ export default function ComercialesPage() {
               </div>
 
               {expandido && (
-                <div className="pl-4 space-y-3 animate-slide-up">
-                  {puedeAsignarTags && <EditorEtiquetasComercial comercial={c} etiquetas={etiquetas} />}
+                <div className="pl-4 animate-slide-up">
                   <ClientesDeComercial comercialId={c.id} puedeGestionar={puedeGestionar} />
                 </div>
               )}

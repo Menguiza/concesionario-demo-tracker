@@ -347,10 +347,21 @@ function FilaUsuarioExistente({ usuario, equipos }) {
   )
 }
 
+const ORDEN_ROLES = ['admin', 'directivo', 'anfitriona', 'comercial']
+const TITULO_ROL_PLURAL = { admin: 'Admin', directivo: 'Directivos', anfitriona: 'Anfitriona', comercial: 'Comerciales' }
+
 function SeccionUsuariosExistentes({ usuarios, equipos }) {
   const [busqueda, setBusqueda] = useState('')
   if (usuarios.length === 0) return null
-  const visibles = usuarios.filter((u) => coincideBusqueda(u.nombre, busqueda))
+  // La búsqueda matchea nombre O rol, para poder escribir "directivo" y ver
+  // solo esa sección — el agrupado de abajo se arma sobre lo ya filtrado.
+  const visibles = usuarios.filter((u) => coincideBusqueda(`${u.nombre} ${u.rol}`, busqueda))
+  const grupos = ORDEN_ROLES.map((rol) => ({
+    rol,
+    titulo: TITULO_ROL_PLURAL[rol],
+    integrantes: visibles.filter((u) => u.rol === rol).sort((a, b) => a.nombre.localeCompare(b.nombre)),
+  })).filter((g) => g.integrantes.length > 0)
+
   return (
     <Tarjeta animar className="p-4 space-y-1">
       <h2 className="text-sm font-semibold text-gray-900">Staff existente</h2>
@@ -358,11 +369,18 @@ function SeccionUsuariosExistentes({ usuarios, equipos }) {
         Toca un comercial para editar su horario. El equipo se cambia desde la sección "Equipos".
       </p>
       {usuarios.length > 3 && (
-        <BarraBusqueda valor={busqueda} onChange={setBusqueda} placeholder="Buscar por nombre..." className="mb-2" />
+        <BarraBusqueda valor={busqueda} onChange={setBusqueda} placeholder="Buscar por nombre o rol..." className="mb-2" />
       )}
       {visibles.length === 0 && <p className="text-xs text-gray-400 py-2">Nada coincide con "{busqueda}".</p>}
-      {visibles.map((u) => (
-        <FilaUsuarioExistente key={u.id} usuario={u} equipos={equipos} />
+      {grupos.map((g) => (
+        <div key={g.rol} className="pt-2 first:pt-0">
+          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide px-0.5">
+            {g.titulo} · {g.integrantes.length}
+          </p>
+          {g.integrantes.map((u) => (
+            <FilaUsuarioExistente key={u.id} usuario={u} equipos={equipos} />
+          ))}
+        </div>
       ))}
     </Tarjeta>
   )
