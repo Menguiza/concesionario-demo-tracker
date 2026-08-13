@@ -12,6 +12,7 @@ import Boton from '../components/Boton'
 import Alerta from '../components/Alerta'
 import BarraBusqueda from '../components/BarraBusqueda'
 import { colorDeEtiqueta } from '../lib/coloresEtiquetas'
+import { useAuth } from '../context/AuthContext'
 
 function horarioVacio() {
   return Object.fromEntries(DIAS_SEMANA.map((d) => [d, { activo: false, inicio: '08:00', fin: '18:00' }]))
@@ -208,6 +209,7 @@ function SeccionUsuarios({ equipos }) {
           <option value="comercial">Comercial</option>
           <option value="anfitriona">Anfitriona</option>
           <option value="directivo">Directivo</option>
+          <option value="gerente">Gerente</option>
           <option value="admin">Admin</option>
         </select>
         {rol === 'comercial' && (
@@ -235,7 +237,22 @@ function SeccionUsuarios({ equipos }) {
   )
 }
 
-function FilaUsuarioExistente({ usuario, equipos }) {
+// Lo que ve gerente en vez de "Crear cuenta de staff": sumar o quitar
+// usuarios es justo lo que queda exclusivo del proveedor del sistema.
+function SeccionUsuariosBloqueada() {
+  return (
+    <Tarjeta animar className="p-4 space-y-2">
+      <h2 className="text-sm font-semibold text-gray-900">Crear cuenta de staff</h2>
+      <p className="text-xs text-gray-500">
+        Agregar o desactivar usuarios lo gestiona directamente tu proveedor del sistema. Escríbele a Daniel Hoyos (@menguiza) cuando
+        necesites sumar o dar de baja a alguien — el resto de la administración (equipos, horarios, etiquetas, pico y placa) la manejas tú
+        mismo, sin depender de nadie.
+      </p>
+    </Tarjeta>
+  )
+}
+
+function FilaUsuarioExistente({ usuario, equipos, puedeAdministrarUsuarios }) {
   const [expandido, setExpandido] = useState(false)
   const [horario, setHorario] = useState(usuario.horarioSemanal ?? horarioVacio())
   const [telefono, setTelefono] = useState(usuario.telefono ?? '')
@@ -304,15 +321,19 @@ function FilaUsuarioExistente({ usuario, equipos }) {
             {esComercial && equiposDelComercial.length === 0 && ' · sin equipo'}
           </p>
         </button>
-        <label className="flex items-center gap-1.5 text-xs shrink-0 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={usuario.activo !== false}
-            onChange={toggleActivo}
-            className="rounded border-gray-300 text-gray-900 focus:ring-gray-900/10"
-          />
-          Activo
-        </label>
+        {puedeAdministrarUsuarios ? (
+          <label className="flex items-center gap-1.5 text-xs shrink-0 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={usuario.activo !== false}
+              onChange={toggleActivo}
+              className="rounded border-gray-300 text-gray-900 focus:ring-gray-900/10"
+            />
+            Activo
+          </label>
+        ) : (
+          <span className="text-xs text-gray-400 shrink-0">{usuario.activo !== false ? 'Activo' : 'Inactivo'}</span>
+        )}
       </div>
 
       {puedeExpandir && expandido && (
@@ -348,10 +369,10 @@ function FilaUsuarioExistente({ usuario, equipos }) {
   )
 }
 
-const ORDEN_ROLES = ['admin', 'directivo', 'anfitriona', 'comercial']
-const TITULO_ROL_PLURAL = { admin: 'Admin', directivo: 'Directivos', anfitriona: 'Anfitriona', comercial: 'Comerciales' }
+const ORDEN_ROLES = ['admin', 'gerente', 'directivo', 'anfitriona', 'comercial']
+const TITULO_ROL_PLURAL = { admin: 'Admin', gerente: 'Gerentes', directivo: 'Directivos', anfitriona: 'Anfitriona', comercial: 'Comerciales' }
 
-function SeccionUsuariosExistentes({ usuarios, equipos }) {
+function SeccionUsuariosExistentes({ usuarios, equipos, puedeAdministrarUsuarios }) {
   const [busqueda, setBusqueda] = useState('')
   if (usuarios.length === 0) return null
   // La búsqueda matchea nombre O rol, para poder escribir "directivo" y ver
@@ -379,7 +400,7 @@ function SeccionUsuariosExistentes({ usuarios, equipos }) {
             {g.titulo} · {g.integrantes.length}
           </p>
           {g.integrantes.map((u) => (
-            <FilaUsuarioExistente key={u.id} usuario={u} equipos={equipos} />
+            <FilaUsuarioExistente key={u.id} usuario={u} equipos={equipos} puedeAdministrarUsuarios={puedeAdministrarUsuarios} />
           ))}
         </div>
       ))}
@@ -436,9 +457,9 @@ function SeccionPicoYPlaca() {
   )
 }
 
-// Catálogo de etiquetas (ej: "Planta", "Web") — crearlas/borrarlas es
-// exclusivo de admin. Asignarlas a un comercial puntual se hace desde
-// Comerciales (admin y directivo), no aquí.
+// Catálogo de etiquetas (ej: "Planta", "Web") — crearlas/borrarlas es cosa
+// de admin/gerente (gestión operativa). Asignarlas a un comercial puntual
+// se hace desde Comerciales, no aquí.
 function SeccionEtiquetas({ etiquetas }) {
   const [nombre, setNombre] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -468,7 +489,7 @@ function SeccionEtiquetas({ etiquetas }) {
     <Tarjeta animar className="p-4 space-y-3">
       <h2 className="text-sm font-semibold text-gray-900">Etiquetas de comerciales</h2>
       <p className="text-xs text-gray-500">
-        Áreas u orígenes (ej: Planta, Web) que después admin y directivo pueden asignar a cada comercial desde "Comerciales".
+        Áreas u orígenes (ej: Planta, Web) que después se pueden asignar a cada comercial desde "Comerciales".
       </p>
       <form onSubmit={handleCrear} className="flex gap-2">
         <input required placeholder="Nombre de la etiqueta" value={nombre} onChange={(e) => setNombre(e.target.value)} className={INPUT} />
@@ -498,6 +519,8 @@ function SeccionEtiquetas({ etiquetas }) {
 }
 
 export default function AdminPage() {
+  const { rol } = useAuth()
+  const puedeAdministrarUsuarios = rol === 'admin'
   const [equipos, setEquipos] = useState([])
   const [usuarios, setUsuarios] = useState([])
   const [etiquetas, setEtiquetas] = useState([])
@@ -511,8 +534,8 @@ export default function AdminPage() {
       <h1 className="text-lg font-semibold text-gray-900">Administración</h1>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <SeccionEquipos equipos={equipos} usuarios={usuarios} />
-        <SeccionUsuarios equipos={equipos} />
-        <SeccionUsuariosExistentes usuarios={usuarios} equipos={equipos} />
+        {puedeAdministrarUsuarios ? <SeccionUsuarios equipos={equipos} /> : <SeccionUsuariosBloqueada />}
+        <SeccionUsuariosExistentes usuarios={usuarios} equipos={equipos} puedeAdministrarUsuarios={puedeAdministrarUsuarios} />
         <SeccionPicoYPlaca />
         <SeccionEtiquetas etiquetas={etiquetas} />
       </div>

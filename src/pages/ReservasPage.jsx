@@ -23,7 +23,7 @@ import Alerta from '../components/Alerta'
 import Vacio from '../components/Vacio'
 import BarraBusqueda from '../components/BarraBusqueda'
 
-const ROLES_QUE_PUEDEN_GESTIONAR = ['admin', 'anfitriona', 'directivo']
+const ROLES_QUE_PUEDEN_GESTIONAR = ['admin', 'gerente', 'anfitriona', 'directivo']
 
 function formatoFechaHora(timestamp) {
   return timestamp.toDate().toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
@@ -203,7 +203,7 @@ export default function ReservasPage() {
     return suscribirUsuarios((todos) => {
       setComerciales(todos.filter((u) => u.rol === 'comercial'))
       setDirectivos(todos.filter((u) => u.rol === 'directivo'))
-      setStaffResponsable(todos.filter((u) => ['comercial', 'directivo', 'anfitriona'].includes(u.rol) && u.activo !== false))
+      setStaffResponsable(todos.filter((u) => ['comercial', 'directivo', 'anfitriona', 'gerente'].includes(u.rol) && u.activo !== false))
     })
   }, [])
 

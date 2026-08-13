@@ -5,13 +5,13 @@ import { IconoAdmin, IconoComerciales, IconoVehiculos, IconoReservas, IconoCola,
 // solo lo que le aplica, pero conserva este mismo orden relativo. Reportes va
 // al final: es una herramienta transversal, no parte de esa jerarquía.
 export const SECCIONES = [
-  { to: '/admin', label: 'Administración', roles: ['admin'], icono: IconoAdmin },
-  { to: '/comerciales', label: 'Comerciales', roles: ['admin', 'anfitriona', 'directivo'], icono: IconoComerciales },
+  { to: '/admin', label: 'Administración', roles: ['admin', 'gerente'], icono: IconoAdmin },
+  { to: '/comerciales', label: 'Comerciales', roles: ['admin', 'gerente', 'anfitriona', 'directivo'], icono: IconoComerciales },
   { to: '/comercial', label: 'Mis clientes', roles: ['comercial'], icono: IconoComerciales },
-  { to: '/vehiculos', label: 'Vehículos', roles: ['admin', 'anfitriona', 'comercial', 'directivo'], icono: IconoVehiculos },
-  { to: '/reservas', label: 'Reservas', roles: ['admin', 'anfitriona', 'comercial', 'directivo'], icono: IconoReservas },
-  { to: '/anfitriona', label: 'Cola', roles: ['admin', 'anfitriona'], icono: IconoCola },
-  { to: '/reportes', label: 'Reportes', roles: ['admin', 'anfitriona', 'directivo'], icono: IconoReporte },
+  { to: '/vehiculos', label: 'Vehículos', roles: ['admin', 'gerente', 'anfitriona', 'comercial', 'directivo'], icono: IconoVehiculos },
+  { to: '/reservas', label: 'Reservas', roles: ['admin', 'gerente', 'anfitriona', 'comercial', 'directivo'], icono: IconoReservas },
+  { to: '/anfitriona', label: 'Cola', roles: ['admin', 'gerente', 'anfitriona'], icono: IconoCola },
+  { to: '/reportes', label: 'Reportes', roles: ['admin', 'gerente', 'anfitriona', 'directivo'], icono: IconoReporte },
 ]
 
 export function seccionesDeRol(rol) {

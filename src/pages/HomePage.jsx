@@ -292,7 +292,7 @@ export default function HomePage() {
 
   useEffect(() => suscribirVehiculos(setVehiculos), [])
   useEffect(() => {
-    if (rol !== 'admin' && rol !== 'anfitriona') return
+    if (rol !== 'admin' && rol !== 'gerente' && rol !== 'anfitriona') return
     return suscribirReservas(setReservas)
   }, [rol])
 
@@ -322,7 +322,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {(rol === 'admin' || rol === 'anfitriona') && (
+      {(rol === 'admin' || rol === 'gerente' || rol === 'anfitriona') && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <TarjetaColaOperativa />
           <TarjetaVehiculosResumen vehiculos={vehiculos} />

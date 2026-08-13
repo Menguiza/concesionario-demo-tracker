@@ -8,6 +8,13 @@ service cloud.firestore {
     function esAdmin() {
       return request.auth != null && rolDe(request.auth.uid) == 'admin';
     }
+    // Rol intermedio: gestiona la operación diaria (equipos, cola, reservas,
+    // vehículos, pico y placa, etiquetas) igual que admin, pero NUNCA puede
+    // crear/borrar cuentas ni tocar 'activo'/'rol' de un usuario — eso queda
+    // exclusivo de admin a propósito (control de licenciamiento).
+    function esGerente() {
+      return request.auth != null && rolDe(request.auth.uid) == 'gerente';
+    }
     function esAnfitriona() {
       return request.auth != null && rolDe(request.auth.uid) == 'anfitriona';
     }
@@ -25,31 +32,34 @@ service cloud.firestore {
       allow read: if autenticado();
       allow create, delete: if esAdmin();
       // Anfitriona solo puede tocar ultimaLlegada (marcar llegada); directivo
-      // solo puede tocar tags (asignar etiquetas a un comercial); todo lo
-      // demás (rol, horario, activo, etc.) sigue siendo exclusivo de admin.
+      // solo puede tocar tags (asignar etiquetas a un comercial); gerente
+      // puede tocar datos operativos de cualquiera (teléfono, horario,
+      // etiquetas, llegada) pero nunca 'activo' ni 'rol' — crear/desactivar
+      // gente sigue siendo exclusivo de admin.
       allow update: if esAdmin() ||
         (esAnfitriona() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ultimaLlegada'])) ||
-        (esDirectivo() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tags']));
+        (esDirectivo() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tags'])) ||
+        (esGerente() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tags', 'telefono', 'horarioSemanal', 'ultimaLlegada']));
     }
 
     match /etiquetas/{id} {
       allow read: if autenticado();
-      allow create, update, delete: if esAdmin();
+      allow create, update, delete: if esAdmin() || esGerente();
     }
 
     match /equipos/{id} {
       allow read: if autenticado();
-      allow write: if esAdmin();
+      allow write: if esAdmin() || esGerente();
     }
 
     match /estadoSemana/{id} {
       allow read: if autenticado();
-      allow write: if esAdmin() || esAnfitriona();
+      allow write: if esAdmin() || esGerente() || esAnfitriona();
     }
 
     match /historialEquipos/{id} {
       allow read: if autenticado();
-      allow create: if esAdmin() || esAnfitriona();
+      allow create: if esAdmin() || esGerente() || esAnfitriona();
     }
 
     match /colaEquipo/{id} {
@@ -58,18 +68,18 @@ service cloud.firestore {
       // siendo solo dato operativo (turnos), y la escritura sigue exclusiva
       // de quien gestiona la cola.
       allow read: if autenticado();
-      allow write: if esAdmin() || esAnfitriona();
+      allow write: if esAdmin() || esGerente() || esAnfitriona();
     }
 
     match /clientes/{id} {
       allow read: if autenticado();
-      allow create: if esAdmin() || esAnfitriona();
-      allow update: if esAdmin() || esAnfitriona() || (esComercial() && resource.data.comercialAsignadoId == request.auth.uid);
+      allow create: if esAdmin() || esGerente() || esAnfitriona();
+      allow update: if esAdmin() || esGerente() || esAnfitriona() || (esComercial() && resource.data.comercialAsignadoId == request.auth.uid);
     }
 
     match /vehiculos/{id} {
       allow read: if autenticado();
-      allow write: if esAdmin() || esAnfitriona();
+      allow write: if esAdmin() || esGerente() || esAnfitriona();
       // Comercial/directivo pueden registrar su propio movimiento (entrega o
       // devolución de un vehículo que reservaron), pero solo tocando estos
       // campos — no pueden crear vehículos ni editar placa/marca/etc.
@@ -85,7 +95,7 @@ service cloud.firestore {
 
     match /reservas/{id} {
       allow read: if autenticado();
-      allow write: if esAdmin() || esAnfitriona() || esDirectivo();
+      allow write: if esAdmin() || esGerente() || esAnfitriona() || esDirectivo();
       // Comercial puede cerrar (marcar cumplida/omitida) únicamente su
       // propia reserva, o aquella donde quedó como "responsable" de un
       // préstamo a cliente — y solo esos dos campos. El "&&" corta antes de
@@ -107,12 +117,12 @@ service cloud.firestore {
 
     match /clientesMaestro/{id} {
       allow read: if autenticado();
-      allow create, update: if esAdmin() || esAnfitriona();
+      allow create, update: if esAdmin() || esGerente() || esAnfitriona();
     }
 
     match /picoYPlacaConfig/{id} {
       allow read: if autenticado();
-      allow write: if esAdmin();
+      allow write: if esAdmin() || esGerente();
     }
   }
 }

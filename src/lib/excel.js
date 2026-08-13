@@ -7,7 +7,7 @@ export const ALTO_FILA_DATOS = 58
 
 export function crearLibro() {
   const libro = new ExcelJS.Workbook()
-  libro.creator = 'Gestión de Vehículos y Comerciales'
+  libro.creator = 'Rotaflota'
   libro.created = new Date()
   return libro
 }

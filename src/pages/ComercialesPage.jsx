@@ -145,8 +145,8 @@ function ClientesDeComercial({ comercialId, puedeGestionar }) {
 
 export default function ComercialesPage() {
   const { rol } = useAuth()
-  const puedeGestionar = rol === 'admin' || rol === 'anfitriona'
-  const puedeAsignarTags = rol === 'admin' || rol === 'directivo'
+  const puedeGestionar = rol === 'admin' || rol === 'gerente' || rol === 'anfitriona'
+  const puedeAsignarTags = rol === 'admin' || rol === 'gerente' || rol === 'directivo'
   const [comerciales, setComerciales] = useState([])
   const [etiquetas, setEtiquetas] = useState([])
   const [expandidoId, setExpandidoId] = useState(null)

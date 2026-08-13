@@ -22,7 +22,8 @@ function Marca() {
           <circle cx="16.5" cy="16" r="0.8" fill="currentColor" />
         </svg>
       </div>
-      <h1 className="text-lg font-semibold text-gray-900">Gestión de Vehículos</h1>
+      <h1 className="text-lg font-semibold text-gray-900">Rotaflota</h1>
+      <p className="text-xs text-gray-400 -mt-2">Gestión de comerciales y flota</p>
     </div>
   )
 }
@@ -39,7 +40,13 @@ function FormularioOlvideContrasena({ onVolver }) {
     try {
       await enviarCorreoRestablecerPassword(email)
       setMensaje('Si ese correo tiene una cuenta, te llegó un enlace para poner una contraseña nueva. Revisa también spam.')
-    } catch {
+    } catch (err) {
+      // El mensaje al usuario se queda genérico a propósito (no delatar si un
+      // correo tiene cuenta o no), pero el error real se registra en consola
+      // para poder diagnosticar — antes se perdía por completo (catch sin
+      // parámetro), así que un fallo de verdad (dominio no autorizado, cuota
+      // de Firebase) se veía idéntico a un envío exitoso.
+      console.error('No se pudo enviar el correo de restablecer contraseña:', err)
       setMensaje('Si ese correo tiene una cuenta, te llegó un enlace para poner una contraseña nueva. Revisa también spam.')
     } finally {
       setEnviando(false)

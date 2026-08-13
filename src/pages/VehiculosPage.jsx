@@ -33,7 +33,7 @@ import Alerta from '../components/Alerta'
 import Vacio from '../components/Vacio'
 
 const PATRON_PLACA = /^[A-Z]{3}[0-9]{3}$/
-const ROLES_GESTION_AMPLIA = ['admin', 'anfitriona']
+const ROLES_GESTION_AMPLIA = ['admin', 'gerente', 'anfitriona']
 const DURACIONES_ASIGNACION = [
   { horas: 1, label: '1 hora' },
   { horas: 2, label: '2 horas' },
@@ -179,7 +179,7 @@ function ConsultaPicoYPlacaRapida({ vehiculo, picoYPlacaConfig }) {
 // ella — así todo préstamo (instantáneo o no) queda bajo el mismo mecanismo
 // de responsabilidad/incumplimiento que ya usan comercial y directivo.
 function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, directivosActivos, staffResponsable, etiquetas, onCerrar }) {
-  const { perfil } = useAuth()
+  const { perfil, rol, firebaseUser } = useAuth()
   const gruposStaffResponsable = agruparPersonasPorEtiqueta(staffResponsable, etiquetas)
   const tipo = vehiculo.estado === 'prestado' ? 'recepcion' : 'entrega'
   const [nombreCliente, setNombreCliente] = useState('')
@@ -231,14 +231,17 @@ function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, directivos
 
     setEnviando(true)
     try {
-      const anfitriona = { tipo: 'anfitriona', nombre: perfil?.nombre ?? '', uid: null }
+      // Antes se etiquetaba como 'anfitriona' sin importar quién usara este
+      // formulario (admin, gerente...) — con el rol/uid real queda correcto
+      // en reportes sin importar quién de gestión amplia lo esté haciendo.
+      const quienRegistra = { tipo: rol, nombre: perfil?.nombre ?? '', uid: firebaseUser?.uid ?? null }
       const cliente = { tipo: 'cliente', nombre: nombreCliente, uid: null }
 
       if (tipo === 'recepcion') {
         await registrarMovimiento({
           vehiculoId: vehiculo.id,
           tipo,
-          quienRecibe: anfitriona,
+          quienRecibe: quienRegistra,
           quienEntrega: vehiculo.quienTiene ?? cliente,
           motivo: motivo.trim() || null,
           fotos,
@@ -279,7 +282,7 @@ function FormularioMovimientoAnfitriona({ vehiculo, picoYPlacaConfig, directivos
         vehiculoId: vehiculo.id,
         tipo,
         quienRecibe: cliente,
-        quienEntrega: anfitriona,
+        quienEntrega: quienRegistra,
         motivo: motivo.trim() || null,
         fotos,
         video,
@@ -521,7 +524,7 @@ export default function VehiculosPage() {
   const personasAsignables = usuariosTodos.filter((u) => (u.rol === 'comercial' || u.rol === 'directivo') && u.activo !== false)
   const directivosActivos = usuariosTodos.filter((u) => u.rol === 'directivo' && u.activo !== false)
   const staffResponsable = usuariosTodos.filter(
-    (u) => ['comercial', 'directivo', 'anfitriona'].includes(u.rol) && u.activo !== false
+    (u) => ['comercial', 'directivo', 'anfitriona', 'gerente'].includes(u.rol) && u.activo !== false
   )
   const usuariosPorId = Object.fromEntries(usuariosTodos.map((u) => [u.id, u]))
 

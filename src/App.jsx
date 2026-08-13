@@ -37,7 +37,7 @@ export default function App() {
             <Route
               path="/anfitriona"
               element={
-                <ProtectedRoute roles={['admin', 'anfitriona']}>
+                <ProtectedRoute roles={['admin', 'gerente', 'anfitriona']}>
                   <AnfitrionaPage />
                 </ProtectedRoute>
               }
@@ -47,7 +47,7 @@ export default function App() {
             <Route
               path="/comerciales"
               element={
-                <ProtectedRoute roles={['admin', 'anfitriona', 'directivo']}>
+                <ProtectedRoute roles={['admin', 'gerente', 'anfitriona', 'directivo']}>
                   <ComercialesPage />
                 </ProtectedRoute>
               }
@@ -63,7 +63,7 @@ export default function App() {
             <Route
               path="/admin"
               element={
-                <ProtectedRoute roles={['admin']}>
+                <ProtectedRoute roles={['admin', 'gerente']}>
                   <AdminPage />
                 </ProtectedRoute>
               }
@@ -71,7 +71,7 @@ export default function App() {
             <Route
               path="/reportes"
               element={
-                <ProtectedRoute roles={['admin', 'anfitriona', 'directivo']}>
+                <ProtectedRoute roles={['admin', 'gerente', 'anfitriona', 'directivo']}>
                   <Suspense fallback={<div className="p-6 text-center text-gray-500 text-sm">Cargando…</div>}>
                     <ReportesPage />
                   </Suspense>

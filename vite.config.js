@@ -12,8 +12,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Gestión de Vehículos y Comerciales',
-        short_name: 'ConcesionarioApp',
+        name: 'Rotaflota — Gestión de Vehículos y Comerciales',
+        short_name: 'Rotaflota',
         start_url: '/concesionario-demo-tracker/',
         scope: '/concesionario-demo-tracker/',
         display: 'standalone',
