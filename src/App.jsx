@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
+import AuthActionPage from './pages/AuthActionPage'
 import HomePage from './pages/HomePage'
 import AnfitrionaPage from './pages/AnfitrionaPage'
 import VehiculosPage from './pages/VehiculosPage'
@@ -25,6 +26,7 @@ export default function App() {
       <HashRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/action" element={<AuthActionPage />} />
           <Route
             element={
               <ProtectedRoute>

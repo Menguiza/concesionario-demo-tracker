@@ -7,6 +7,9 @@ const MENSAJES = {
   'auth/user-not-found': 'Correo o contraseña incorrectos.',
   'auth/network-request-failed': 'No hay conexión a internet. Intenta de nuevo.',
   'auth/too-many-requests': 'Demasiados intentos. Espera un momento e intenta de nuevo.',
+  'auth/expired-action-code': 'Este enlace ya venció. Pide uno nuevo desde "¿Olvidaste tu contraseña?".',
+  'auth/invalid-action-code': 'Este enlace ya se usó o no es válido. Pide uno nuevo desde "¿Olvidaste tu contraseña?".',
+  'auth/user-disabled': 'Esta cuenta está desactivada. Habla con tu administrador.',
   'permission-denied': 'No tienes permiso para hacer esto.',
 }
 

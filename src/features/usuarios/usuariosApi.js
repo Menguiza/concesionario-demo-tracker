@@ -5,8 +5,17 @@ import { db, app, auth } from '../../firebase/config'
 import { agregarComercialAEquipo } from '../equipos/equiposApi'
 import { fechaLocalYYYYMMDD } from '../../lib/fechas'
 
-function urlDeRetornoAlLogin() {
-  return { url: `${window.location.origin}${window.location.pathname}#/login` }
+// handleCodeInApp:true hace que Firebase mande a la persona directo a esta
+// misma app (con mode/oobCode en la URL) en vez de a la página genérica
+// de Firebase Hosting (.firebaseapp.com/__/auth/action) — así "restablecer
+// contraseña" se ve con la marca de Rotaflota, no con el estilo default de
+// Firebase. La ruta /auth/action (AuthActionPage) es quien procesa el
+// código.
+function configuracionAccionCorreo() {
+  return {
+    url: `${window.location.origin}${window.location.pathname}#/auth/action`,
+    handleCodeInApp: true,
+  }
 }
 
 export function suscribirUsuarios(callback) {
@@ -49,7 +58,7 @@ export async function crearUsuarioStaff({ email, password, nombre, telefono, rol
     // la creación completa falló, porque no fue así.
     let correoEnviado = true
     try {
-      await sendPasswordResetEmail(secondaryAuth, email, urlDeRetornoAlLogin())
+      await sendPasswordResetEmail(secondaryAuth, email, configuracionAccionCorreo())
     } catch (err) {
       console.warn('No se pudo enviar el correo de restablecer contraseña:', err)
       correoEnviado = false
@@ -63,7 +72,7 @@ export async function crearUsuarioStaff({ email, password, nombre, telefono, rol
 }
 
 export function enviarCorreoRestablecerPassword(email) {
-  return sendPasswordResetEmail(auth, email, urlDeRetornoAlLogin())
+  return sendPasswordResetEmail(auth, email, configuracionAccionCorreo())
 }
 
 export function actualizarUsuario(uid, cambios) {
