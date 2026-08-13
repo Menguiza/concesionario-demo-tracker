@@ -304,7 +304,7 @@ export default function HomePage() {
     <div className="space-y-6 animate-fade-in">
       <div>
         <p className="text-sm text-gray-400">{saludo()}</p>
-        <h1 className="text-xl font-semibold text-gray-900">{primerNombre(perfil?.nombre)}</h1>
+        <h1 className="font-marca text-2xl font-semibold text-gray-900">{primerNombre(perfil?.nombre)}</h1>
       </div>
 
       {rol === 'comercial' && (

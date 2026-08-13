@@ -128,7 +128,7 @@ export default function FormularioRegistroPropio({ vehiculo, tipo, reserva, ocul
             type="checkbox"
             checked={esCliente}
             onChange={(e) => setEsCliente(e.target.checked)}
-            className="rounded border-gray-300 text-gray-900 focus:ring-gray-900/10"
+            className="rounded border-gray-300 text-brand-600 focus:ring-brand-500/15"
           />
           Es para un cliente
         </label>

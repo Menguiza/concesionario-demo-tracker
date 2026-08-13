@@ -37,7 +37,7 @@ function EditorHorario({ horario, onChange }) {
               type="checkbox"
               checked={horario[dia].activo}
               onChange={(e) => onChange({ ...horario, [dia]: { ...horario[dia], activo: e.target.checked } })}
-              className="rounded border-gray-300 text-gray-900 focus:ring-gray-900/10"
+              className="rounded border-gray-300 text-brand-600 focus:ring-brand-500/15"
             />
             {ETIQUETA_DIA[dia]}
           </label>
@@ -107,7 +107,7 @@ function SeccionEquipos({ equipos, usuarios }) {
                 <label
                   key={c.id}
                   className={`flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1 cursor-pointer border transition-colors ${
-                    enEquipo ? 'bg-gray-900 text-white border-gray-900' : 'bg-gray-50 text-gray-600 border-transparent hover:border-gray-300'
+                    enEquipo ? 'bg-brand-600 text-white border-brand-600' : 'bg-gray-50 text-gray-600 border-transparent hover:border-gray-300'
                   }`}
                 >
                   <input type="checkbox" checked={enEquipo} onChange={() => toggleMiembro(equipo, c.id)} className="hidden" />
@@ -327,7 +327,7 @@ function FilaUsuarioExistente({ usuario, equipos, puedeAdministrarUsuarios }) {
               type="checkbox"
               checked={usuario.activo !== false}
               onChange={toggleActivo}
-              className="rounded border-gray-300 text-gray-900 focus:ring-gray-900/10"
+              className="rounded border-gray-300 text-brand-600 focus:ring-brand-500/15"
             />
             Activo
           </label>

@@ -118,7 +118,7 @@ function CalendarioReservas({ reservas, vehiculosPorId }) {
               onClick={() => setDiaSeleccionado(d)}
               className={`aspect-square rounded-lg text-xs flex flex-col items-center justify-center gap-0.5 border p-0.5 transition-all duration-150 ${
                 diaSeleccionado === d
-                  ? 'border-gray-900 bg-gray-900 text-white shadow-sm'
+                  ? 'border-brand-600 bg-brand-600 text-white shadow-sm'
                   : reservasPorDia[d]
                     ? 'border-amber-200 bg-amber-50 hover:border-amber-300'
                     : 'border-gray-100 hover:border-gray-300 hover:bg-gray-50'
@@ -425,7 +425,7 @@ export default function ReservasPage() {
         <button
           onClick={() => setVista('calendario')}
           className={`text-sm rounded-lg px-3 py-1.5 transition-colors ${
-            vista === 'calendario' ? 'bg-gray-900 text-white shadow-sm' : 'bg-white border border-gray-300 text-gray-600 hover:border-gray-400'
+            vista === 'calendario' ? 'bg-brand-600 text-white shadow-sm' : 'bg-white border border-gray-300 text-gray-600 hover:border-gray-400'
           }`}
         >
           Calendario
@@ -433,7 +433,7 @@ export default function ReservasPage() {
         <button
           onClick={() => setVista('lista')}
           className={`text-sm rounded-lg px-3 py-1.5 transition-colors ${
-            vista === 'lista' ? 'bg-gray-900 text-white shadow-sm' : 'bg-white border border-gray-300 text-gray-600 hover:border-gray-400'
+            vista === 'lista' ? 'bg-brand-600 text-white shadow-sm' : 'bg-white border border-gray-300 text-gray-600 hover:border-gray-400'
           }`}
         >
           Lista

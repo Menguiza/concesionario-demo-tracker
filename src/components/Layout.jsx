@@ -15,7 +15,7 @@ function iniciales(nombre) {
 
 const ITEM_NAV =
   'flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-lg transition-colors duration-150'
-const ITEM_NAV_ACTIVO = 'bg-gray-900 text-white'
+const ITEM_NAV_ACTIVO = 'bg-brand-600 text-white'
 const ITEM_NAV_INACTIVO = 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
 
 export default function Layout() {
@@ -36,18 +36,16 @@ export default function Layout() {
                 <Link
                   to="/"
                   title="Inicio"
-                  className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center shrink-0 transition-transform duration-150 hover:scale-105 active:scale-95"
+                  className="flex items-center gap-2 shrink-0 group"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4 text-white">
-                    <path
-                      d="M3 13l1.5-4.5A2 2 0 016.4 7h11.2a2 2 0 011.9 1.5L21 13M5 13h14v5a1 1 0 01-1 1h-1a1 1 0 01-1-1v-1H8v1a1 1 0 01-1 1H6a1 1 0 01-1-1v-5z"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinejoin="round"
-                    />
-                    <circle cx="7.5" cy="16" r="0.8" fill="currentColor" />
-                    <circle cx="16.5" cy="16" r="0.8" fill="currentColor" />
-                  </svg>
+                  <span className="w-8 h-8 rounded-lg bg-brand-900 flex items-center justify-center shrink-0 transition-transform duration-150 group-hover:scale-105 group-active:scale-95">
+                    <svg viewBox="0 0 32 32" className="w-5 h-5">
+                      <circle cx="13.5" cy="13" r="6.25" fill="none" stroke="#F5F1E8" strokeWidth="2.6" />
+                      <circle cx="13.5" cy="13" r="2.1" fill="#D3AD74" />
+                      <path d="M18.2 17.7 L24.5 24" stroke="#F5F1E8" strokeWidth="2.6" strokeLinecap="round" />
+                    </svg>
+                  </span>
+                  <span className="hidden md:block font-marca text-lg font-semibold text-gray-900 tracking-tight">Rotaflota</span>
                 </Link>
 
                 <nav className="hidden sm:flex flex-wrap gap-1">
@@ -113,7 +111,7 @@ export default function Layout() {
                     end
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                        isActive ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+                        isActive ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-100'
                       }`
                     }
                   >
@@ -126,7 +124,7 @@ export default function Layout() {
                       to={link.to}
                       className={({ isActive }) =>
                         `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                          isActive ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+                          isActive ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-100'
                         }`
                       }
                     >

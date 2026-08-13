@@ -9,7 +9,7 @@ export default function BarraBusqueda({ valor, onChange, placeholder = 'Buscar..
         value={valor}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-gray-300 pl-9 pr-8 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+        className="w-full rounded-lg border border-gray-300 pl-9 pr-8 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/15 focus:border-brand-400"
       />
       {valor && (
         <button

@@ -1,5 +1,24 @@
 @import "tailwindcss";
 
+/* Paleta de marca (Rotaflota) — un bronce cálido, deliberadamente distinto
+   del gris/azul genérico de dashboard. Se usa solo en superficies de
+   identidad/acción primaria (botón principal, nav activa, logo) — el resto
+   de la UI (texto, bordes, fondos neutros) se queda en gris, a propósito,
+   para no saturar una app operativa densa en datos. Los colores de estado
+   (verde/ámbar/rojo/azul de Badge) no se tocan: tienen significado propio. */
+@theme {
+  --color-brand-50: #FBF3E9;
+  --color-brand-100: #F2E6D4;
+  --color-brand-200: #E3CBA3;
+  --color-brand-300: #D3AD74;
+  --color-brand-400: #C08F4E;
+  --color-brand-500: #A8722F;
+  --color-brand-600: #8B5E27;
+  --color-brand-700: #6E4A1F;
+  --color-brand-800: #523717;
+  --color-brand-900: #3A280F;
+}
+
 :root {
   color-scheme: light;
 }
@@ -9,6 +28,14 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+/* Fuente de identidad — solo para momentos de marca (login, encabezado del
+   dashboard), nunca en pantallas de trabajo densas: ahí Inter se queda
+   porque es lo más legible para tablas/formularios/números. */
+.font-marca {
+  font-family: 'Newsreader', Georgia, serif;
+  font-optical-sizing: auto;
 }
 
 /* Scrollbar discreto, solo estético — no cambia el comportamiento. */

@@ -143,13 +143,13 @@ function ConsultaPicoYPlacaRapida({ vehiculo, picoYPlacaConfig }) {
           <input
             type="date"
             onChange={(e) => e.target.value && setDesde(parseFechaLocal(e.target.value))}
-            className="rounded-lg border border-gray-300 px-2 py-1 text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+            className="rounded-lg border border-gray-300 px-2 py-1 text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/15 focus:border-gray-400"
           />
           <span className="text-gray-400">hasta</span>
           <input
             type="date"
             onChange={(e) => e.target.value && setHasta(parseFechaLocal(e.target.value))}
-            className="rounded-lg border border-gray-300 px-2 py-1 text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400"
+            className="rounded-lg border border-gray-300 px-2 py-1 text-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500/15 focus:border-gray-400"
           />
         </div>
       )}

@@ -10,19 +10,14 @@ import Alerta from '../components/Alerta'
 function Marca() {
   return (
     <div className="flex flex-col items-center gap-3 mb-2">
-      <div className="w-12 h-12 rounded-2xl bg-gray-900 flex items-center justify-center shadow-sm">
-        <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6 text-white">
-          <path
-            d="M3 13l1.5-4.5A2 2 0 016.4 7h11.2a2 2 0 011.9 1.5L21 13M5 13h14v5a1 1 0 01-1 1h-1a1 1 0 01-1-1v-1H8v1a1 1 0 01-1 1H6a1 1 0 01-1-1v-5z"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-          />
-          <circle cx="7.5" cy="16" r="0.8" fill="currentColor" />
-          <circle cx="16.5" cy="16" r="0.8" fill="currentColor" />
+      <div className="w-14 h-14 rounded-2xl bg-brand-900 flex items-center justify-center shadow-sm">
+        <svg viewBox="0 0 32 32" className="w-8 h-8">
+          <circle cx="13.5" cy="13" r="6.25" fill="none" stroke="#F5F1E8" strokeWidth="2.3" />
+          <circle cx="13.5" cy="13" r="2" fill="#D3AD74" />
+          <path d="M18.2 17.7 L24.5 24" stroke="#F5F1E8" strokeWidth="2.3" strokeLinecap="round" />
         </svg>
       </div>
-      <h1 className="text-lg font-semibold text-gray-900">Rotaflota</h1>
+      <h1 className="font-marca text-3xl font-semibold text-gray-900 tracking-tight">Rotaflota</h1>
       <p className="text-xs text-gray-400 -mt-2">Gestión de comerciales y flota</p>
     </div>
   )
@@ -105,7 +100,7 @@ export default function LoginPage() {
   }
 
   const fondo =
-    'min-h-screen flex items-center justify-center px-4 bg-gray-50 bg-[radial-gradient(circle_at_top,_rgba(17,24,39,0.05),_transparent_60%)]'
+    'min-h-screen flex items-center justify-center px-4 bg-gray-50 bg-[radial-gradient(circle_at_top,_rgba(168,114,47,0.08),_transparent_60%)]'
 
   if (mostrarOlvide) {
     return (
@@ -151,7 +146,7 @@ export default function LoginPage() {
             type="checkbox"
             checked={recordarme}
             onChange={(e) => setRecordarme(e.target.checked)}
-            className="rounded border-gray-300 text-gray-900 focus:ring-gray-900/10"
+            className="rounded border-gray-300 text-brand-600 focus:ring-brand-500/15"
           />
           Recuérdame en este dispositivo
         </label>

@@ -1,13 +1,13 @@
 const COLORES_ON = {
   emerald: 'bg-emerald-500',
   blue: 'bg-blue-500',
-  gray: 'bg-gray-900',
+  brand: 'bg-brand-600',
 }
 
 const COLORES_TEXTO_ON = {
   emerald: 'text-emerald-700',
   blue: 'text-blue-700',
-  gray: 'text-gray-900',
+  brand: 'text-brand-700',
 }
 
 // Interruptor que nombra el ESTADO actual, no la acción a tomar (evita el
