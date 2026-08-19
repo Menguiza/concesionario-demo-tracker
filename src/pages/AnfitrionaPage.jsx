@@ -5,6 +5,7 @@ import {
   suscribirColaEquipo,
   inicializarColaSemana,
   actualizarOrden,
+  reordenarPorLlegada,
   marcarOcupado,
   establecerClienteActual,
 } from '../features/cola/colaApi'
@@ -367,6 +368,7 @@ export default function AnfitrionaPage() {
 
   async function handleMarcarLlegada(comercialId) {
     await marcarLlegadaHoy(comercialId)
+    await reordenarPorLlegada(comercialId)
   }
 
   async function handleDesmarcarLlegada(comercialId) {

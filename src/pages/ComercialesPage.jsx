@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { suscribirUsuarios, marcarLlegadaHoy, desmarcarLlegadaHoy, actualizarUsuario } from '../features/usuarios/usuariosApi'
+import { reordenarPorLlegada } from '../features/cola/colaApi'
 import { suscribirClientesDeComercial, marcarDescarte, revertirDescarte } from '../features/clientes/clientesApi'
 import { suscribirEtiquetas } from '../features/etiquetas/etiquetasApi'
 import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
@@ -156,6 +157,11 @@ export default function ComercialesPage() {
   useEffect(() => suscribirUsuarios((todos) => setComerciales(todos.filter((u) => u.rol === 'comercial'))), [])
   useEffect(() => suscribirEtiquetas(setEtiquetas), [])
 
+  async function handleMarcarLlegada(id) {
+    await marcarLlegadaHoy(id)
+    await reordenarPorLlegada(id)
+  }
+
   const etiquetasPorId = Object.fromEntries(etiquetas.map((t) => [t.id, t]))
   // La búsqueda también matchea por nombre de etiqueta, para poder filtrar
   // rápido "quién es de Planta" sin tener que abrir cada tarjeta.
@@ -244,7 +250,7 @@ export default function ComercialesPage() {
                     : 'No ha marcado llegada hoy'}
                 </span>
                 {!llegadaHoy && puedeGestionar && (
-                  <Boton variante="secundario" tamano="sm" onClick={() => marcarLlegadaHoy(c.id)} className="shrink-0">
+                  <Boton variante="secundario" tamano="sm" onClick={() => handleMarcarLlegada(c.id)} className="shrink-0">
                     Marcar llegada
                   </Boton>
                 )}
