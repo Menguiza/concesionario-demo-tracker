@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { suscribirUsuarios, marcarLlegadaHoy, actualizarUsuario } from '../features/usuarios/usuariosApi'
+import { suscribirUsuarios, marcarLlegadaHoy, desmarcarLlegadaHoy, actualizarUsuario } from '../features/usuarios/usuariosApi'
 import { suscribirClientesDeComercial, marcarDescarte, revertirDescarte } from '../features/clientes/clientesApi'
 import { suscribirEtiquetas } from '../features/etiquetas/etiquetasApi'
 import { MOTIVOS_DESCARTE } from '../lib/motivosDescarte'
@@ -247,6 +247,14 @@ export default function ComercialesPage() {
                   <Boton variante="secundario" tamano="sm" onClick={() => marcarLlegadaHoy(c.id)} className="shrink-0">
                     Marcar llegada
                   </Boton>
+                )}
+                {llegadaHoy && puedeGestionar && (
+                  <button
+                    onClick={() => desmarcarLlegadaHoy(c.id)}
+                    className="text-xs text-gray-400 hover:text-red-600 transition-colors shrink-0"
+                  >
+                    Deshacer
+                  </button>
                 )}
               </div>
 

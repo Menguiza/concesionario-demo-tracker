@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { suscribirEquipos, suscribirEstadoSemana, fijarEquipoActivo, avanzarEquipoDelDia } from '../features/equipos/equiposApi'
-import { suscribirUsuarios, marcarLlegadaHoy } from '../features/usuarios/usuariosApi'
+import { suscribirUsuarios, marcarLlegadaHoy, desmarcarLlegadaHoy } from '../features/usuarios/usuariosApi'
 import {
   suscribirColaEquipo,
   inicializarColaSemana,
@@ -149,7 +149,7 @@ export default function AnfitrionaPage() {
   // atendió cada quien el día hábil inmediatamente anterior (no la semana
   // completa) — se usa tanto al fijar el equipo a mano como en la rotación
   // automática de abajo, para que ambos caminos calculen igual.
-  async function calcularYAplicarOrden(equipoId, hoy, { esAncla }) {
+  async function calcularYAplicarOrden(equipoId, hoy, { esAncla, limpiarLlegadas = false }) {
     const equipo = equipos.find((e) => e.id === equipoId)
     const miembros = usuarios.filter((u) => equipo.miembros.includes(u.id) && u.activo !== false)
 
@@ -180,12 +180,15 @@ export default function AnfitrionaPage() {
       await avanzarEquipoDelDia(equipoId, hoyStr)
     }
     await inicializarColaSemana(equipoId, orden)
+    if (limpiarLlegadas) {
+      await Promise.all(miembros.map((m) => desmarcarLlegadaHoy(m.id)))
+    }
     return equipo
   }
 
-  async function handleIniciarSemana(equipoId) {
+  async function handleIniciarSemana(equipoId, opciones = {}) {
     try {
-      const equipo = await calcularYAplicarOrden(equipoId, new Date(), { esAncla: true })
+      const equipo = await calcularYAplicarOrden(equipoId, new Date(), { esAncla: true, ...opciones })
       if (equipo) setMensaje(`Semana iniciada con el equipo "${equipo.nombre}".`)
     } catch (err) {
       setMensaje(mensajeErrorAmigable(err))
@@ -350,6 +353,10 @@ export default function AnfitrionaPage() {
     await marcarLlegadaHoy(comercialId)
   }
 
+  async function handleDesmarcarLlegada(comercialId) {
+    await desmarcarLlegadaHoy(comercialId)
+  }
+
   if (!equipoActivoId) {
     return (
       <div className="space-y-4 animate-fade-in">
@@ -377,7 +384,7 @@ export default function AnfitrionaPage() {
           <button
             onClick={() => {
               if (window.confirm('Esto borra quién está ocupado y las llegadas de hoy, y recalcula el orden desde cero. ¿Continuar?')) {
-                handleIniciarSemana(equipoActivoId)
+                handleIniciarSemana(equipoActivoId, { limpiarLlegadas: true })
               }
             }}
             className="text-xs text-gray-500 hover:text-gray-900 transition-colors"
@@ -595,6 +602,14 @@ export default function AnfitrionaPage() {
                   <Boton variante="secundario" tamano="sm" onClick={() => handleMarcarLlegada(id)} className="shrink-0">
                     Ya llegó
                   </Boton>
+                )}
+                {llegada && (
+                  <button
+                    onClick={() => handleDesmarcarLlegada(id)}
+                    className="text-xs text-gray-400 hover:text-red-600 transition-colors shrink-0"
+                  >
+                    Deshacer
+                  </button>
                 )}
               </div>
 

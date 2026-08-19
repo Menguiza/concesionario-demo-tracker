@@ -88,3 +88,9 @@ export function marcarLlegadaHoy(uid) {
     ultimaLlegada: { fecha: fechaLocalYYYYMMDD(ahora), horaISO: ahora.toISOString() },
   })
 }
+
+// Deshacer una llegada marcada por error — sin esto, un clic accidental en
+// "Ya llegó" no tenía forma de corregirse.
+export function desmarcarLlegadaHoy(uid) {
+  return updateDoc(doc(db, 'usuarios', uid), { ultimaLlegada: null })
+}
