@@ -214,16 +214,28 @@ export default function AnfitrionaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estadoSemana?.ultimoDiaActivado, estadoSemana?.equipoInicialId, estadoSemana?.fechaInicioNegocio, equipos.length, usuarios.length])
 
-  function idsEnHorarioAhora() {
+  function llegoHoy(comercial) {
+    return comercial?.ultimaLlegada?.fecha === fechaLocalYYYYMMDD()
+  }
+
+  // Quién puede recibir un cliente ahora mismo: activo, en su horario de
+  // hoy, Y ya marcó llegada — no tiene sentido asignarle un cliente a
+  // alguien que todavía no está físicamente en el concesionario. El orden
+  // (por clientes atendidos ayer) sigue definiendo la prioridad; esto solo
+  // decide quién de esa fila es elegible en este momento, igual que ya
+  // pasa con "fuera de horario".
+  function idsListosAhora() {
     return new Set(
-      comercialesEquipo.filter((c) => c.activo !== false && estaEnHorario(c.horarioSemanal)).map((c) => c.id)
+      comercialesEquipo
+        .filter((c) => c.activo !== false && estaEnHorario(c.horarioSemanal) && llegoHoy(c))
+        .map((c) => c.id)
     )
   }
 
   // A quién le tocaría el próximo cliente si se asigna "normal" ahora mismo
   // (no aplica si el próximo cliente pide un comercial específico).
   const proximoEnRecibir = cola?.orden
-    ? elegirYRotar(cola.orden, new Set(cola.ocupados ?? []), idsEnHorarioAhora()).elegido
+    ? elegirYRotar(cola.orden, new Set(cola.ocupados ?? []), idsListosAhora()).elegido
     : null
 
   async function ocuparConCliente(comercialId, cliente) {
@@ -258,6 +270,10 @@ export default function AnfitrionaPage() {
           setMensaje(`${persona?.nombre ?? 'Ese comercial'} no está en su horario ahorita, no se le puede asignar.`)
           return
         }
+        if (!llegoHoy(persona)) {
+          setMensaje(`${persona?.nombre ?? 'Ese comercial'} todavía no ha marcado llegada hoy, no se le puede asignar.`)
+          return
+        }
 
         const esDelEquipoActivo = comercialesActivosEquipo.some((c) => c.id === comercialEspecificoId)
 
@@ -288,7 +304,7 @@ export default function AnfitrionaPage() {
         }
       } else {
         const idsOcupados = new Set(cola.ocupados ?? [])
-        const { elegido, nuevoOrden } = elegirYRotar(cola.orden, idsOcupados, idsEnHorarioAhora())
+        const { elegido, nuevoOrden } = elegirYRotar(cola.orden, idsOcupados, idsListosAhora())
         if (!elegido) {
           setMensaje('No hay comerciales disponibles en este momento.')
           return
@@ -551,6 +567,10 @@ export default function AnfitrionaPage() {
           a tener que decir si ese cliente fue efectivo o no. Si necesitas marcarlo ocupado por otro motivo (ausente, etc.) puedes hacerlo
           manual, y ahí sí se libera directo, sin preguntar nada.
         </p>
+        <p>
+          <strong className="text-gray-700">Llegada:</strong> mientras alguien no marque "Ya llegó", la cola lo salta — no le va a tocar
+          ningún cliente aunque sea su turno, hasta que llegue.
+        </p>
       </div>
 
       <h2 className="text-sm font-semibold text-gray-900">Fila del equipo</h2>
@@ -561,6 +581,7 @@ export default function AnfitrionaPage() {
           const ocupado = cola.ocupados?.includes(id)
           const enHorario = comercial ? estaEnHorario(comercial.horarioSemanal) : false
           const llegada = comercial?.ultimaLlegada?.fecha === fechaLocalYYYYMMDD() ? comercial.ultimaLlegada : null
+          const noHaLlegado = enHorario && !llegada
           const esSiguiente = id === proximoEnRecibir
           return (
             <Tarjeta
@@ -591,6 +612,7 @@ export default function AnfitrionaPage() {
                 {esSiguiente && <Badge color="blue">Siguiente</Badge>}
               </div>
               {!enHorario && <p className="text-xs text-gray-400 pl-10">Fuera de su horario de hoy</p>}
+              {noHaLlegado && <p className="text-xs text-amber-600 pl-10">Todavía no ha llegado — no le va a tocar cliente hasta que llegue</p>}
 
               <div className="flex items-center justify-between gap-2 pl-10">
                 <span className="text-xs text-gray-500">

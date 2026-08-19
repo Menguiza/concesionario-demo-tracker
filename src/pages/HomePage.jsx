@@ -25,6 +25,10 @@ function primerNombre(nombre) {
   return nombre?.trim().split(/\s+/)[0] ?? ''
 }
 
+function llegoHoy(comercial) {
+  return comercial?.ultimaLlegada?.fecha === fechaLocalYYYYMMDD()
+}
+
 function formatoFechaHora(timestamp) {
   return timestamp.toDate().toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
 }
@@ -132,7 +136,7 @@ function TarjetaEstadoCola({ uid }) {
   const ocupado = cola.ocupados?.includes(uid)
   const clienteActual = cola.clienteActual?.[uid]
   const comercialesEquipo = usuarios.filter((u) => miEquipo.miembros.includes(u.id) && u.activo !== false)
-  const idsEnHorario = new Set(comercialesEquipo.filter((c) => estaEnHorario(c.horarioSemanal)).map((c) => c.id))
+  const idsEnHorario = new Set(comercialesEquipo.filter((c) => estaEnHorario(c.horarioSemanal) && llegoHoy(c)).map((c) => c.id))
   const { elegido } = elegirYRotar(cola.orden ?? [], new Set(cola.ocupados ?? []), idsEnHorario)
   const esSiguiente = elegido === uid
   const posicion = (cola.orden ?? []).indexOf(uid) + 1
@@ -198,7 +202,7 @@ function TarjetaColaOperativa() {
   const ocupados = cola?.ocupados?.length ?? 0
   const total = cola?.orden?.length ?? 0
   const comercialesEquipo = usuarios.filter((u) => equipoActivo.miembros.includes(u.id) && u.activo !== false)
-  const idsEnHorario = new Set(comercialesEquipo.filter((c) => estaEnHorario(c.horarioSemanal)).map((c) => c.id))
+  const idsEnHorario = new Set(comercialesEquipo.filter((c) => estaEnHorario(c.horarioSemanal) && llegoHoy(c)).map((c) => c.id))
   const { elegido } = cola ? elegirYRotar(cola.orden ?? [], new Set(cola.ocupados ?? []), idsEnHorario) : { elegido: null }
   const siguienteNombre = usuarios.find((u) => u.id === elegido)?.nombre
 
